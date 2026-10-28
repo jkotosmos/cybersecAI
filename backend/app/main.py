@@ -12,8 +12,9 @@
 from __future__ import annotations
 
 import asyncio
+import re
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, JSONResponse
 
 from app.config import settings
@@ -21,6 +22,9 @@ from app.core import events
 from app.core.orchestrator import Orchestrator
 from app.core.scope import ScopeError
 from app.modules import registry
+
+_RUN_ID = re.compile(r"[A-Za-z0-9._-]+")
+_MEDIA = {"md": "text/markdown; charset=utf-8", "json": "application/json"}
 
 app = FastAPI(title="VibeSec", version="0.1.0")
 
@@ -33,6 +37,17 @@ async def get_modules() -> JSONResponse:
 @app.get("/api/health")
 async def health() -> dict:
     return {"status": "ok", "version": app.version}
+
+
+@app.get("/api/report/{run_id}")
+async def get_report(run_id: str, format: str = "md") -> FileResponse:
+    """Отдать готовый отчёт на скачивание (md | json)."""
+    if not _RUN_ID.fullmatch(run_id) or format not in _MEDIA:
+        raise HTTPException(status_code=400, detail="некорректный запрос")
+    path = (settings.reports_dir / run_id / f"report.{format}").resolve()
+    if settings.reports_dir.resolve() not in path.parents or not path.exists():
+        raise HTTPException(status_code=404, detail="отчёт не найден")
+    return FileResponse(path, filename=f"vibesec-{run_id}.{format}", media_type=_MEDIA[format])
 
 
 @app.websocket("/ws/run")

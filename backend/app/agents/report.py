@@ -1,26 +1,13 @@
-"""Агент генерации отчёта: собирает результаты запусков в читаемый отчёт."""
+"""Агент сборки отчёта: подгружает находки прошлых запусков и компилирует отчёт."""
 from __future__ import annotations
 
 from app.agents.base import Agent, Step
 
 agent = Agent(
     id="report",
-    title="Отчёт",
+    title="Сборка отчёта",
     steps=[
-        Step(
-            name="Сбор данных",
-            argv=["vibesec-report", "collect", "{target}"],
-            demo_lines=["[+] загружены результаты последних запусков"],
-        ),
-        Step(
-            name="Приоритизация",
-            argv=["vibesec-report", "rank", "{target}"],
-            demo_lines=["[+] находки отсортированы по CVSS"],
-        ),
-        Step(
-            name="Формирование отчёта",
-            argv=["vibesec-report", "build", "{target}"],
-            demo_lines=["[+] отчёт сохранён: reports/{target}.md"],
-        ),
+        Step(name="Сбор находок по цели", action="collect"),
+        Step(name="Сборка отчёта", action="report"),
     ],
 )

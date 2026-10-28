@@ -1,454 +1,330 @@
 <title>VibeSec</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <style>
-  /* Layout: full-bleed dark app — deep-blue→slate gradient ground, module grid → launch panel → run console */
-  :root {
-    --grad-from: #0f1b2d;   /* deep blue */
-    --grad-mid:  #16222f;
-    --grad-to:   #2a333f;   /* slate gray */
-    --surface:   rgba(148, 176, 214, 0.06);
-    --surface-2: rgba(148, 176, 214, 0.09);
-    --border:    rgba(159, 186, 221, 0.14);
-    --border-hi: rgba(120, 165, 240, 0.45);
-    --accent:    #4f8ff7;
-    --accent-dim:#2f6fd6;
-    --text:      #e8eef6;
-    --text-dim:  #9fb0c3;
-    --text-mut:  #6f8197;
-    --ok:        #43c08a;
-    --warn:      #e0b341;
-    --err:       #e8686c;
-    --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-    --sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
-    color-scheme: dark;
+  /* Layout: full-bleed dark app — deep-blue→slate ground, module grid → launch → run (terminal + findings + report) */
+  :root{
+    --grad-from:#0f1b2d; --grad-mid:#16222f; --grad-to:#2a333f;
+    --surface:rgba(148,176,214,.06); --surface-2:rgba(148,176,214,.09);
+    --border:rgba(159,186,221,.14); --border-hi:rgba(120,165,240,.45);
+    --accent:#4f8ff7; --accent-dim:#2f6fd6;
+    --text:#e8eef6; --text-dim:#9fb0c3; --text-mut:#6f8197;
+    --ok:#43c08a; --warn:#e0b341; --err:#e8686c;
+    --mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --sans:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif;
+    color-scheme:dark;
   }
-  * { box-sizing: border-box; }
-  html, body { height: 100%; }
-  body {
-    margin: 0;
-    font-family: var(--sans);
-    color: var(--text);
-    background:
-      radial-gradient(1100px 650px at 82% -8%, rgba(79,143,247,0.16), transparent 60%),
-      linear-gradient(145deg, var(--grad-from), var(--grad-mid) 48%, var(--grad-to));
-    background-attachment: fixed;
-    -webkit-font-smoothing: antialiased;
-  }
-  .wrap {
-    max-width: 1120px; margin: 0 auto; min-height: 100%;
-    padding-left: max(20px, env(safe-area-inset-left, 0px));
-    padding-right: max(20px, env(safe-area-inset-right, 0px));
-    padding-block: 26px 48px;
-    display: flex; flex-direction: column; gap: 26px;
-  }
-
-  /* Header */
-  header { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
-  .logo { display: flex; align-items: center; gap: 12px; }
-  .mark {
-    width: 40px; height: 40px; border-radius: 11px; flex: none;
-    background: linear-gradient(140deg, var(--accent), var(--accent-dim));
-    display: grid; place-items: center; box-shadow: 0 6px 20px rgba(47,111,214,0.4);
-  }
-  .mark svg { width: 22px; height: 22px; }
-  .brand { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; }
-  .brand span { color: var(--accent); }
-  .tag { font-size: 12.5px; color: var(--text-dim); margin-top: 1px; }
-  .spacer { flex: 1 1 auto; }
-  .status-chip {
-    display: inline-flex; align-items: center; gap: 7px; font-size: 12px; color: var(--text-dim);
-    background: var(--surface); border: 1px solid var(--border); padding: 7px 12px; border-radius: 999px;
-  }
-  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 8px var(--ok); }
-
-  /* Screen sections */
-  .screen { display: none; flex-direction: column; gap: 20px; }
-  .screen.active { display: flex; }
-
-  .lead h1 { font-size: 27px; font-weight: 700; letter-spacing: -0.025em; margin: 0 0 6px; text-wrap: balance; }
-  .lead p { margin: 0; color: var(--text-dim); font-size: 14.5px; max-width: 62ch; }
-
-  /* Module grid */
-  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
-  @media (max-width: 860px) { .grid { grid-template-columns: repeat(2, 1fr); } }
-  @media (max-width: 560px) { .grid { grid-template-columns: 1fr; } }
-
-  .card {
-    text-align: left; cursor: pointer; color: inherit; font: inherit;
-    background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
-    padding: 20px; display: flex; flex-direction: column; gap: 12px; min-width: 0;
-    transition: transform .16s ease, border-color .16s ease, background .16s ease, box-shadow .16s ease;
-  }
-  .card:hover { transform: translateY(-3px); border-color: var(--border-hi); background: var(--surface-2); box-shadow: 0 14px 34px rgba(8,16,30,0.5); }
-  .card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  .card .ico {
-    width: 42px; height: 42px; border-radius: 11px; flex: none; display: grid; place-items: center;
-    background: linear-gradient(140deg, rgba(79,143,247,0.22), rgba(79,143,247,0.06));
-    border: 1px solid var(--border); color: var(--accent);
-  }
-  .card .ico svg { width: 21px; height: 21px; }
-  .card h3 { margin: 0; font-size: 16px; font-weight: 650; letter-spacing: -0.01em; }
-  .card p { margin: 0; font-size: 13px; color: var(--text-dim); line-height: 1.5; }
-  .card .meta { margin-top: auto; display: flex; gap: 8px; align-items: center; font-size: 11.5px; color: var(--text-mut); }
-  .pill { font-size: 11px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--border); color: var(--text-dim); background: rgba(0,0,0,0.12); }
-  .pill.deep { color: var(--warn); border-color: rgba(224,179,65,0.3); }
-
-  /* Launch panel */
-  .panel {
-    background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 24px;
-    display: flex; flex-direction: column; gap: 18px; max-width: 640px;
-  }
-  .panel-head { display: flex; align-items: center; gap: 14px; }
-  .panel-head .ico { width: 46px; height: 46px; border-radius: 12px; }
-  .panel-head h2 { margin: 0; font-size: 19px; }
-  .panel-head p { margin: 2px 0 0; font-size: 13px; color: var(--text-dim); }
-  label.field { display: flex; flex-direction: column; gap: 7px; font-size: 13px; color: var(--text-dim); }
-  input[type=text] {
-    font: inherit; font-size: 14px; color: var(--text); background: rgba(0,0,0,0.22);
-    border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; width: 100%;
-  }
-  input[type=text]:focus { outline: none; border-color: var(--border-hi); box-shadow: 0 0 0 3px rgba(79,143,247,0.18); }
-  .scope {
-    display: flex; gap: 11px; align-items: flex-start; font-size: 13px; color: var(--text-dim);
-    background: rgba(224,179,65,0.07); border: 1px solid rgba(224,179,65,0.22); border-radius: 11px; padding: 13px 14px; line-height: 1.5;
-  }
-  .scope input { margin-top: 2px; width: 16px; height: 16px; accent-color: var(--accent); flex: none; }
-  .scope b { color: var(--warn); }
-  .row { display: flex; gap: 11px; flex-wrap: wrap; }
-  .btn {
-    font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; border-radius: 10px; padding: 12px 20px;
-    border: 1px solid transparent; transition: filter .15s ease, background .15s ease, opacity .15s ease;
-  }
-  .btn-primary { background: linear-gradient(140deg, var(--accent), var(--accent-dim)); color: #fff; box-shadow: 0 8px 22px rgba(47,111,214,0.38); }
-  .btn-primary:hover { filter: brightness(1.08); }
-  .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; }
-  .btn-ghost { background: var(--surface-2); color: var(--text); border-color: var(--border); }
-  .btn-ghost:hover { border-color: var(--border-hi); }
-  .btn-danger { background: rgba(232,104,108,0.16); color: var(--err); border-color: rgba(232,104,108,0.4); }
-  .btn-danger:hover { background: rgba(232,104,108,0.26); }
-  .back { background: none; border: none; color: var(--text-dim); font: inherit; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; padding: 0; width: fit-content; }
-  .back:hover { color: var(--text); }
-
-  /* Run screen */
-  .run-top { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
-  .run-top h2 { margin: 0; font-size: 18px; }
-  .run-top .target { font-family: var(--mono); font-size: 12.5px; color: var(--accent); background: rgba(79,143,247,0.1); padding: 4px 10px; border-radius: 7px; border: 1px solid var(--border); }
-  .run-layout { display: grid; grid-template-columns: 280px 1fr; gap: 16px; align-items: start; }
-  @media (max-width: 760px) { .run-layout { grid-template-columns: 1fr; } }
-
-  .stages { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 4px; }
-  .stage { display: flex; align-items: center; gap: 11px; padding: 9px 8px; border-radius: 9px; font-size: 13.5px; color: var(--text-dim); }
-  .stage .sdot { width: 20px; height: 20px; border-radius: 50%; flex: none; display: grid; place-items: center; border: 1.5px solid var(--text-mut); font-size: 11px; }
-  .stage.done { color: var(--text); }
-  .stage.done .sdot { border-color: var(--ok); background: rgba(67,192,138,0.15); color: var(--ok); }
-  .stage.active { color: var(--text); background: rgba(79,143,247,0.09); }
-  .stage.active .sdot { border-color: var(--accent); color: var(--accent); animation: spin 1s linear infinite; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .stage.active .sdot svg { width: 12px; height: 12px; }
-
-  .overall { margin-top: 10px; }
-  .bar { height: 8px; border-radius: 999px; background: rgba(0,0,0,0.3); overflow: hidden; }
-  .bar > i { display: block; height: 100%; width: 0; border-radius: 999px; background: linear-gradient(90deg, var(--accent-dim), var(--accent)); transition: width .4s ease; }
-  .overall .lbl { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--text-dim); margin-bottom: 6px; font-variant-numeric: tabular-nums; }
-
-  .term-wrap { border: 1px solid var(--border); border-radius: 14px; overflow: hidden; background: #0a1420; }
-  .term-bar { display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: rgba(0,0,0,0.3); border-bottom: 1px solid var(--border); }
-  .tdot { width: 11px; height: 11px; border-radius: 50%; }
-  .term-bar .t1 { background: #e8686c; } .term-bar .t2 { background: var(--warn); } .term-bar .t3 { background: var(--ok); }
-  .term-bar .tt { margin-left: 8px; font-family: var(--mono); font-size: 12px; color: var(--text-mut); }
-  .term {
-    font-family: var(--mono); font-size: 12.5px; line-height: 1.65; padding: 14px 16px; height: 420px;
-    overflow-y: auto; white-space: pre-wrap; word-break: break-word;
-  }
-  .term .ln { display: block; }
-  .term .c-cmd { color: #7fb0ff; } .term .c-ok { color: var(--ok); } .term .c-warn { color: var(--warn); }
-  .term .c-err { color: var(--err); } .term .c-dim { color: var(--text-mut); } .term .c-url { color: #8fd0c8; }
-  .term .prompt { color: var(--accent); }
-  .cursor { display: inline-block; width: 8px; height: 15px; background: var(--accent); vertical-align: text-bottom; animation: blink 1s steps(2) infinite; }
-  @keyframes blink { 50% { opacity: 0; } }
-
-  .term::-webkit-scrollbar { width: 9px; }
-  .term::-webkit-scrollbar-thumb { background: rgba(159,186,221,0.2); border-radius: 9px; }
-
-  .done-banner { display: none; align-items: center; gap: 10px; background: rgba(67,192,138,0.1); border: 1px solid rgba(67,192,138,0.3); color: var(--ok); padding: 12px 16px; border-radius: 11px; font-size: 13.5px; }
-  .done-banner.show { display: flex; }
-
-  footer { margin-top: auto; font-size: 11.5px; color: var(--text-mut); text-align: center; }
-  .proto-note { display: inline-block; font-size: 11px; color: var(--warn); border: 1px solid rgba(224,179,65,0.3); background: rgba(224,179,65,0.07); padding: 3px 10px; border-radius: 999px; }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{margin:0;font-family:var(--sans);color:var(--text);
+    background:radial-gradient(1100px 650px at 82% -8%,rgba(79,143,247,.16),transparent 60%),
+      linear-gradient(145deg,var(--grad-from),var(--grad-mid) 48%,var(--grad-to));
+    background-attachment:fixed;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:1120px;margin:0 auto;min-height:100%;
+    padding-left:max(20px,env(safe-area-inset-left,0));padding-right:max(20px,env(safe-area-inset-right,0));
+    padding-block:26px 48px;display:flex;flex-direction:column;gap:26px;}
+  header{display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+  .mark{width:40px;height:40px;border-radius:11px;flex:none;background:linear-gradient(140deg,var(--accent),var(--accent-dim));display:grid;place-items:center;box-shadow:0 6px 20px rgba(47,111,214,.4);}
+  .mark svg{width:22px;height:22px;}
+  .brand{font-size:20px;font-weight:700;letter-spacing:-.02em;}
+  .brand span{color:var(--accent);}
+  .tag{font-size:12.5px;color:var(--text-dim);margin-top:1px;}
+  .spacer{flex:1 1 auto;}
+  .chip{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:var(--text-dim);background:var(--surface);border:1px solid var(--border);padding:7px 12px;border-radius:999px;}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 8px var(--ok);}
+  .screen{display:none;flex-direction:column;gap:20px;}
+  .screen.active{display:flex;}
+  .lead h1{font-size:27px;font-weight:700;letter-spacing:-.025em;margin:0 0 6px;text-wrap:balance;}
+  .lead p{margin:0;color:var(--text-dim);font-size:14.5px;max-width:64ch;}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
+  @media(max-width:880px){.grid{grid-template-columns:repeat(2,1fr);}}
+  @media(max-width:560px){.grid{grid-template-columns:1fr;}}
+  .card{text-align:left;cursor:pointer;color:inherit;font:inherit;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:11px;min-width:0;transition:transform .16s,border-color .16s,background .16s,box-shadow .16s;}
+  .card:hover{transform:translateY(-3px);border-color:var(--border-hi);background:var(--surface-2);box-shadow:0 14px 34px rgba(8,16,30,.5);}
+  .card:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+  .ico{width:42px;height:42px;border-radius:11px;flex:none;display:grid;place-items:center;background:linear-gradient(140deg,rgba(79,143,247,.22),rgba(79,143,247,.06));border:1px solid var(--border);color:var(--accent);}
+  .ico svg{width:21px;height:21px;}
+  .card h3{margin:0;font-size:15.5px;font-weight:650;letter-spacing:-.01em;}
+  .card p{margin:0;font-size:12.5px;color:var(--text-dim);line-height:1.5;}
+  .vcs{display:flex;flex-wrap:wrap;gap:6px;}
+  .vc{font-size:10.5px;letter-spacing:.03em;padding:2px 7px;border-radius:6px;background:rgba(79,143,247,.12);border:1px solid rgba(79,143,247,.25);color:#9cc0ff;font-family:var(--mono);}
+  .meta{margin-top:auto;display:flex;gap:8px;align-items:center;font-size:11.5px;color:var(--text-mut);}
+  .pill{font-size:11px;padding:3px 9px;border-radius:999px;border:1px solid var(--border);color:var(--text-dim);background:rgba(0,0,0,.12);}
+  .pill.deep{color:var(--warn);border-color:rgba(224,179,65,.3);}
+  .sev{margin-left:auto;font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:2px 8px;border-radius:999px;color:var(--sc);border:1px solid color-mix(in srgb,var(--sc) 45%,transparent);background:color-mix(in srgb,var(--sc) 14%,transparent);}
+  .panel{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:24px;display:flex;flex-direction:column;gap:18px;max-width:640px;}
+  .panel-head{display:flex;align-items:center;gap:14px;}
+  .panel-head .ico{width:46px;height:46px;}
+  .panel-head h2{margin:0;font-size:19px;}
+  .panel-head p{margin:2px 0 0;font-size:13px;color:var(--text-dim);}
+  label.field{display:flex;flex-direction:column;gap:7px;font-size:13px;color:var(--text-dim);}
+  input[type=text]{font:inherit;font-size:14px;color:var(--text);background:rgba(0,0,0,.22);border:1px solid var(--border);border-radius:10px;padding:12px 14px;width:100%;}
+  input[type=text]:focus{outline:none;border-color:var(--border-hi);box-shadow:0 0 0 3px rgba(79,143,247,.18);}
+  .scope{display:flex;gap:11px;align-items:flex-start;font-size:13px;color:var(--text-dim);background:rgba(224,179,65,.07);border:1px solid rgba(224,179,65,.22);border-radius:11px;padding:13px 14px;line-height:1.5;}
+  .scope input{margin-top:2px;width:16px;height:16px;accent-color:var(--accent);flex:none;}
+  .scope b{color:var(--warn);}
+  .row{display:flex;gap:11px;flex-wrap:wrap;}
+  .btn{font:inherit;font-size:14px;font-weight:600;cursor:pointer;border-radius:10px;padding:12px 20px;border:1px solid transparent;transition:filter .15s,background .15s,opacity .15s;text-decoration:none;display:inline-block;text-align:center;}
+  .btn-primary{background:linear-gradient(140deg,var(--accent),var(--accent-dim));color:#fff;box-shadow:0 8px 22px rgba(47,111,214,.38);}
+  .btn-primary:hover{filter:brightness(1.08);}
+  .btn-primary:disabled{opacity:.45;cursor:not-allowed;box-shadow:none;}
+  .btn-ghost{background:var(--surface-2);color:var(--text);border-color:var(--border);}
+  .btn-ghost:hover{border-color:var(--border-hi);}
+  .btn-danger{background:rgba(232,104,108,.16);color:var(--err);border-color:rgba(232,104,108,.4);}
+  .btn-danger:hover{background:rgba(232,104,108,.26);}
+  .back{background:none;border:none;color:var(--text-dim);font:inherit;font-size:13px;cursor:pointer;padding:0;width:fit-content;}
+  .back:hover{color:var(--text);}
+  .run-top{display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+  .run-top h2{margin:0;font-size:18px;}
+  .run-top .target{font-family:var(--mono);font-size:12.5px;color:var(--accent);background:rgba(79,143,247,.1);padding:4px 10px;border-radius:7px;border:1px solid var(--border);}
+  .run-layout{display:grid;grid-template-columns:280px 1fr;gap:16px;align-items:start;}
+  @media(max-width:760px){.run-layout{grid-template-columns:1fr;}}
+  .stages{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:4px;}
+  .stage{display:flex;align-items:center;gap:11px;padding:9px 8px;border-radius:9px;font-size:13px;color:var(--text-dim);}
+  .stage .sdot{width:20px;height:20px;border-radius:50%;flex:none;display:grid;place-items:center;border:1.5px solid var(--text-mut);font-size:11px;}
+  .stage.done{color:var(--text);}
+  .stage.done .sdot{border-color:var(--ok);background:rgba(67,192,138,.15);color:var(--ok);}
+  .stage.active{color:var(--text);background:rgba(79,143,247,.09);}
+  .stage.active .sdot{border-color:var(--accent);color:var(--accent);animation:spin 1s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .stage.active .sdot svg{width:12px;height:12px;}
+  .overall{margin-top:10px;}
+  .overall .lbl{display:flex;justify-content:space-between;font-size:11.5px;color:var(--text-dim);margin-bottom:6px;font-variant-numeric:tabular-nums;}
+  .bar{height:8px;border-radius:999px;background:rgba(0,0,0,.3);overflow:hidden;}
+  .bar>i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--accent-dim),var(--accent));transition:width .4s;}
+  .term-wrap{border:1px solid var(--border);border-radius:14px;overflow:hidden;background:#0a1420;}
+  .term-bar{display:flex;align-items:center;gap:8px;padding:10px 14px;background:rgba(0,0,0,.3);border-bottom:1px solid var(--border);}
+  .tdot{width:11px;height:11px;border-radius:50%;}
+  .t1{background:#e8686c;}.t2{background:var(--warn);}.t3{background:var(--ok);}
+  .term-bar .tt{margin-left:8px;font-family:var(--mono);font-size:12px;color:var(--text-mut);}
+  .term{font-family:var(--mono);font-size:12.5px;line-height:1.65;padding:14px 16px;height:400px;overflow-y:auto;white-space:pre-wrap;word-break:break-word;}
+  .term .ln{display:block;}
+  .c-ok{color:var(--ok);}.c-warn{color:var(--warn);}.c-err{color:var(--err);}.c-dim{color:var(--text-mut);}.c-url{color:#8fd0c8;}.c-cmd{color:#7fb0ff;}
+  .prompt{color:var(--accent);}
+  .term::-webkit-scrollbar{width:9px;}
+  .term::-webkit-scrollbar-thumb{background:rgba(159,186,221,.2);border-radius:9px;}
+  .findings{display:none;flex-direction:column;gap:12px;}
+  .findings.show{display:flex;}
+  .fh{font-size:15px;font-weight:650;display:flex;align-items:center;gap:9px;}
+  .fbadge{font-size:12px;font-weight:700;background:var(--accent);color:#fff;border-radius:999px;padding:1px 9px;font-variant-numeric:tabular-nums;}
+  .flist{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;}
+  @media(max-width:720px){.flist{grid-template-columns:1fr;}}
+  .fcard{position:relative;background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:14px 16px 14px 18px;display:flex;flex-direction:column;gap:7px;overflow:hidden;}
+  .fcard::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--sc,var(--text-mut));}
+  .fcard .ftop{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .fcard .fsev{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--sc);}
+  .fcard .fcls{font-size:10.5px;font-family:var(--mono);color:#9cc0ff;background:rgba(79,143,247,.12);border-radius:5px;padding:1px 6px;}
+  .fcard .fstatus{margin-left:auto;font-size:10.5px;color:var(--text-mut);}
+  .fcard .fstatus.ok{color:var(--ok);}
+  .fcard h4{margin:0;font-size:13.5px;font-weight:600;line-height:1.35;}
+  .fcard .fep{font-size:11.5px;color:var(--text-dim);font-family:var(--mono);word-break:break-all;}
+  .report-card{display:none;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px;flex-direction:column;gap:14px;}
+  .report-card.show{display:flex;}
+  .rc-head{display:flex;align-items:center;gap:9px;font-size:15px;font-weight:650;color:var(--ok);}
+  .report-card p{margin:0;font-size:13.5px;color:var(--text-dim);}
+  .rpre{margin:0;max-height:300px;overflow:auto;background:#0a1420;border:1px solid var(--border);border-radius:10px;padding:14px;font-family:var(--mono);font-size:12px;line-height:1.55;color:var(--text-dim);white-space:pre-wrap;word-break:break-word;}
+  footer{margin-top:auto;font-size:11.5px;color:var(--text-mut);text-align:center;}
+  .proto-note{display:inline-block;font-size:11px;color:var(--warn);border:1px solid rgba(224,179,65,.3);background:rgba(224,179,65,.07);padding:3px 10px;border-radius:999px;}
 </style>
 
 <div class="wrap">
   <header>
-    <div class="logo">
-      <div class="mark"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 3v6c0 5-3.5 8-8 11-4.5-3-8-6-8-11V5z"/><path d="M9 12l2 2 4-4"/></svg></div>
-      <div>
-        <div class="brand">Vibe<span>Sec</span></div>
-        <div class="tag">Платформа этичного тестирования безопасности</div>
-      </div>
-    </div>
+    <div class="mark"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 3v6c0 5-3.5 8-8 11-4.5-3-8-6-8-11V5z"/><path d="M9 12l2 2 4-4"/></svg></div>
+    <div><div class="brand">Vibe<span>Sec</span></div><div class="tag">Платформа этичного тестирования безопасности</div></div>
     <div class="spacer"></div>
-    <div class="status-chip"><span class="dot"></span> Движок готов · Linux</div>
+    <div class="chip"><span class="dot"></span> Движок готов · Linux</div>
   </header>
 
-  <!-- ============ SCREEN 1: MODULES ============ -->
   <section class="screen active" id="s-home">
-    <div class="lead">
-      <h1>Выберите тип проверки</h1>
-      <p>Нажмите карточку модуля, подтвердите цель и scope — дальше платформа работает автономно, транслируя живой вывод инструментов.</p>
-    </div>
-    <div class="grid" id="moduleGrid"></div>
+    <div class="lead"><h1>Выберите тип проверки</h1><p>Нажмите карточку, подтвердите цель и scope — дальше платформа автономно ищет, подтверждает находки и собирает отчёт формата HackerOne.</p></div>
+    <div class="grid" id="grid"></div>
   </section>
 
-  <!-- ============ SCREEN 2: LAUNCH ============ -->
   <section class="screen" id="s-launch">
     <button class="back" onclick="go('home')">← Назад к модулям</button>
     <div class="panel">
-      <div class="panel-head">
-        <div class="ico" id="lIco"></div>
-        <div>
-          <h2 id="lTitle"></h2>
-          <p id="lDesc"></p>
-        </div>
-      </div>
-      <label class="field">Цель проверки
-        <input type="text" id="target" placeholder="example.com  ·  https://app.example.com  ·  IP" value="demo.vibesec.local">
-      </label>
-      <label class="scope">
-        <input type="checkbox" id="scopeChk">
-        <span>Я подтверждаю, что <b>владею этой целью или имею письменное разрешение</b> на тестирование (bug bounty scope / собственный проект). Проверка будет ограничена подтверждённым scope.</span>
-      </label>
-      <div class="row">
-        <button class="btn btn-primary" id="launchBtn" disabled onclick="startRun()">▶  Запустить</button>
-        <button class="btn btn-ghost" onclick="go('home')">Отмена</button>
-      </div>
+      <div class="panel-head"><div class="ico" id="lIco"></div><div><h2 id="lTitle"></h2><p id="lDesc"></p></div></div>
+      <label class="field">Цель проверки<input type="text" id="target" placeholder="example.com · https://app.example.com · IP" value="demo.vibesec.local"></label>
+      <label class="scope"><input type="checkbox" id="scopeChk"><span>Я подтверждаю, что <b>владею этой целью или имею письменное разрешение</b> на тестирование (bug bounty scope / собственный проект).</span></label>
+      <div class="row"><button class="btn btn-primary" id="launchBtn" disabled onclick="startRun()">▶ Запустить</button><button class="btn btn-ghost" onclick="go('home')">Отмена</button></div>
     </div>
   </section>
 
-  <!-- ============ SCREEN 3: RUN ============ -->
   <section class="screen" id="s-run">
     <div class="run-top">
       <button class="back" onclick="go('home')">← Модули</button>
-      <h2 id="rTitle"></h2>
-      <span class="target" id="rTarget"></span>
+      <h2 id="rTitle"></h2><span class="target" id="rTarget"></span>
       <div class="spacer"></div>
       <button class="btn btn-danger" id="stopBtn" onclick="stopRun()">■ Остановить</button>
     </div>
-
-    <div class="done-banner" id="doneBanner">
-      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
-      Проверка завершена. Отчёт готов к генерации.
-    </div>
-
     <div class="run-layout">
       <div class="stages">
         <div id="stageList"></div>
-        <div class="overall">
-          <div class="lbl"><span>Общий прогресс</span><span id="pctLbl">0%</span></div>
-          <div class="bar"><i id="overallBar"></i></div>
-        </div>
+        <div class="overall"><div class="lbl"><span>Общий прогресс</span><span id="pct">0%</span></div><div class="bar"><i id="obar"></i></div></div>
       </div>
-
       <div class="term-wrap">
-        <div class="term-bar">
-          <span class="tdot t1"></span><span class="tdot t2"></span><span class="tdot t3"></span>
-          <span class="tt" id="termTitle">vibesec@orchestrator: ~</span>
-        </div>
+        <div class="term-bar"><span class="tdot t1"></span><span class="tdot t2"></span><span class="tdot t3"></span><span class="tt" id="termTitle">vibesec@orchestrator: ~</span></div>
         <div class="term" id="term"></div>
       </div>
     </div>
+
+    <div class="findings" id="findings">
+      <div class="fh">Находки <span class="fbadge" id="fcount">0</span></div>
+      <div class="flist" id="findingList"></div>
+    </div>
+
+    <div class="report-card" id="reportCard">
+      <div class="rc-head"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg> Отчёт готов — формат HackerOne</div>
+      <p id="reportSummary"></p>
+      <div class="row"><span class="btn btn-primary">↓ Скачать .md</span><span class="btn btn-ghost">↓ Скачать .json</span></div>
+      <pre class="rpre" id="reportPreview"></pre>
+    </div>
   </section>
 
-  <footer>
-    <span class="proto-note">Прототип интерфейса — вывод терминала имитируется для демонстрации дизайна</span>
-  </footer>
+  <footer><span class="proto-note">Прототип интерфейса — вывод и находки имитируются для демонстрации дизайна</span></footer>
 </div>
 
 <script>
-const I = {
-  recon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>',
-  surface: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>',
-  issues: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.3L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.3a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>',
-  vibe: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 18l6-6-6-6"/><path d="M8 6l-6 6 6 6"/><path d="M12.5 3l-1 18"/></svg>',
-  full: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 3v6c0 5-3.5 8-8 11-4.5-3-8-6-8-11V5z"/><path d="M9 12l2 2 4-4"/></svg>',
-  report: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h5"/></svg>'
+const I={
+  recon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>',
+  surface:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>',
+  vuln_hunt:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l18-5-5 18-4-7-7-4z"/><path d="M13 13l6 6"/></svg>',
+  vibe_hunt:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 18l6-6-6-6"/><path d="M8 6l-6 6 6 6"/><path d="M12.5 3l-1 18"/></svg>',
+  full:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 3v6c0 5-3.5 8-8 11-4.5-3-8-6-8-11V5z"/><path d="M9 12l2 2 4-4"/></svg>',
+  report:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h5"/></svg>'
 };
+const SEV={critical:'#e8686c',high:'#e8864f',medium:'#e0b341',low:'#4f8ff7',info:'#6f8197'};
+const SEV_RU={critical:'Critical',high:'High',medium:'Medium',low:'Low',info:'Info'};
 
-const MODULES = [
-  { id:'recon', icon:'recon', title:'Быстрая разведка', desc:'Поддомены, живые хосты, открытые порты и технологии за минуты.', time:'~2–4 мин', depth:'light', stages:['Сбор поддоменов','Проверка живых хостов','Скан портов','Снятие отпечатков'] },
-  { id:'surface', icon:'surface', title:'Полный анализ поверхности', desc:'Глубокое картирование точек входа, эндпоинтов и скрытых путей.', time:'~10–20 мин', depth:'light', stages:['Разведка','Обход контента','Сбор эндпоинтов','Карта поверхности атаки'] },
-  { id:'issues', icon:'issues', title:'Типовые проблемы безопасности', desc:'Проверка на распространённые уязвимости по проверенным шаблонам.', time:'~15–30 мин', depth:'light', stages:['Подготовка целей','Запуск шаблонов','Проверка находок','Сортировка по важности'] },
-  { id:'vibe', icon:'vibe', title:'Проверка AI-кода (vibe-coding)', desc:'Спец-проверка приложений, сгенерированных AI: утечки ключей, небезопасные дефолты.', time:'~10–25 мин', depth:'deep', stages:['Анализ стека','Поиск секретов','Небезопасные паттерны','Проверка зависимостей'] },
-  { id:'full', icon:'full', title:'Комплексная проверка', desc:'Полный цикл: разведка → поверхность → уязвимости → отчёт.', time:'~40–90 мин', depth:'deep', stages:['Разведка','Анализ поверхности','Поиск уязвимостей','Проверка AI-паттернов','Сбор отчёта'] },
-  { id:'report', icon:'report', title:'Генерация отчёта', desc:'Собрать результаты прошлых запусков в читаемый отчёт для bug bounty.', time:'~1–2 мин', depth:'light', stages:['Сбор данных','Приоритизация','Формирование отчёта'] }
+// Демо-находки
+const F_SQLI={cls:'SQLi',sev:'critical',title:'SQL-инъекция в параметре id',ep:'https://{T}/item?id='};
+const F_XSS={cls:'XSS',sev:'high',title:'Reflected XSS в параметре q',ep:'https://{T}/search?q='};
+const F_IDOR={cls:'IDOR',sev:'high',title:'IDOR: доступ к чужому объекту',ep:'https://{T}/api/v1/users/1001'};
+const F_CORS={cls:'Misconfig',sev:'medium',title:'Небезопасная политика CORS',ep:'https://{T}/api'};
+const F_SECRET={cls:'InfoDisclosure',sev:'critical',title:'Утёкший сервисный ключ Supabase',ep:'{T}/config.ts'};
+const F_DEBUG={cls:'Misconfig',sev:'high',title:'Открытый debug-эндпоинт',ep:'https://{T}/__debug__'};
+const F_CREDS={cls:'AuthBypass',sev:'high',title:'Дефолтные креды admin/admin',ep:'https://{T}/login'};
+
+const ST=(name,lines,findings)=>({name,lines:lines||[],findings:findings||[]});
+const HUNT=[
+  ST('Nuclei: CVE и misconfig',[['c-dim','  nuclei · 340 шаблонов (исключены dos/intrusive)'],['c-warn','  [medium] cors-misconfig'],['c-ok','  [+] этап завершён']],[F_CORS]),
+  ST('Dalfox: XSS',[['c-dim','  dalfox · режим детекта'],['c-warn','  [POC] отражение на param q'],['c-ok','  [+] XSS подтверждён в выводе']],[F_XSS]),
+  ST('SQLi (безопасный профиль)',[['c-dim','  sqlmap --level 1 --risk 1 (без os/file-shell)'],['c-err','  [+] parameter \'id\' is injectable']],[F_SQLI]),
+  ST('Контент и доступ (IDOR/BAC)',[['c-dim','  ffuf + проверки доступа'],['c-url','  200  /api/v1/users/1001'],['c-err','  [!] IDOR: чужой аккаунт доступен']],[F_IDOR]),
+];
+const EXPO=[
+  ST('Утёкшие секреты и ключи',[['c-dim','  gitleaks · скан секретов'],['c-err','  [!] supabase service_role в config.ts:34']],[F_SECRET]),
+  ST('Открытые debug-эндпоинты',[['c-url','  200  /__debug__'],['c-err','  [!] debug доступен без авторизации']],[F_DEBUG]),
+  ST('Дефолтные креды и дефолты',[['c-warn','  [~] admin/admin принят на /login']],[F_CREDS]),
+];
+const RECON=[
+  ST('Сбор поддоменов',[['c-url','  api.{T}'],['c-url','  dev.{T}'],['c-ok','  [+] 14 поддоменов']]),
+  ST('Живые хосты и порты',[['c-ok','  200 https://{T} [nginx]'],['c-ok','  [+] 9 живых хостов']]),
+];
+const SURF=[
+  ST('Обход контента',[['c-url','  /login /admin /api/v1/users'],['c-ok','  [+] 142 URL']]),
+  ST('Карта поверхности',[['c-ok','  [+] точек входа 12 · форм 7 · API 19']]),
 ];
 
-let current = null, timer = null;
+const MODULES=[
+  {id:'recon',title:'Recon Sweep · Быстрая разведка',desc:'Поддомены, живые хосты, порты и технологии за минуты.',depth:'light',eta:'~2–4 мин',sev:'info',classes:[],stages:RECON},
+  {id:'surface',title:'Attack Surface Mapping · Поверхность атаки',desc:'Обход контента, поиск параметров и скрытых путей.',depth:'light',eta:'~10–20 мин',sev:'low',classes:[],stages:[...RECON,...SURF]},
+  {id:'vuln_hunt',title:'Vulnerability Hunt · Охота на уязвимости',desc:'Активный поиск XSS, SQLi, SSRF, IDOR, BAC с валидацией и отчётом.',depth:'deep',eta:'~30–60 мин',sev:'critical',classes:['IDOR','XSS','SQLi','SSRF','BAC'],stages:[...RECON,...HUNT],finalize:true},
+  {id:'vibe_hunt',title:'Vibe-Code Exploit Hunt · Охота в AI-коде',desc:'Секреты, debug-эндпоинты, дефолтные креды, небезопасные дефолты AI-генераторов.',depth:'deep',eta:'~15–30 мин',sev:'high',classes:['InfoDisclosure','AuthBypass','Misconfig'],stages:EXPO,finalize:true},
+  {id:'full',title:'Full Kill Chain · Полный цикл',desc:'Автономно: разведка → поверхность → охота → AI-код → валидация → отчёт.',depth:'deep',eta:'~40–90 мин',sev:'critical',classes:['IDOR','XSS','SQLi','SSRF','BAC','AuthBypass'],stages:[...RECON,...HUNT,...EXPO],finalize:true},
+  {id:'report',title:'Report Builder · Сборка отчёта',desc:'Собрать подтверждённые находки по цели в отчёт формата HackerOne.',depth:'light',eta:'~1–2 мин',sev:'info',classes:[],stages:[ST('Сбор находок по цели',[['c-dim','  загрузка последних результатов']]) ],finalize:true,reportOnly:true},
+];
 
-// Build module grid
-const grid = document.getElementById('moduleGrid');
-MODULES.forEach(m => {
-  const b = document.createElement('button');
-  b.className = 'card';
-  b.onclick = () => openLaunch(m);
-  b.innerHTML = `
-    <div class="ico">${I[m.icon]}</div>
-    <h3>${m.title}</h3>
-    <p>${m.desc}</p>
-    <div class="meta"><span class="pill ${m.depth==='deep'?'deep':''}">${m.depth==='deep'?'Глубокая':'Быстрая'}</span> ${m.time}</div>`;
+let current=null,timer=null,fcount=0;
+
+const grid=document.getElementById('grid');
+MODULES.forEach(m=>{
+  const b=document.createElement('button');b.className='card';b.onclick=()=>openLaunch(m);
+  const chips=m.classes.map(c=>`<span class="vc">${c}</span>`).join('');
+  const sev=m.sev!=='info'?`<span class="sev" style="--sc:${SEV[m.sev]}">${SEV_RU[m.sev]}</span>`:'';
+  b.innerHTML=`<div class="ico">${I[m.id]}</div><h3>${m.title}</h3><p>${m.desc}</p>
+    ${chips?`<div class="vcs">${chips}</div>`:''}
+    <div class="meta"><span class="pill ${m.depth==='deep'?'deep':''}">${m.depth==='deep'?'Глубокая':'Быстрая'}</span> ${m.eta} ${sev}</div>`;
   grid.appendChild(b);
 });
 
-function go(s){
-  document.querySelectorAll('.screen').forEach(e=>e.classList.remove('active'));
-  document.getElementById('s-'+s).classList.add('active');
-  window.scrollTo({top:0, behavior:'smooth'});
-}
+function go(s){document.querySelectorAll('.screen').forEach(e=>e.classList.remove('active'));document.getElementById('s-'+s).classList.add('active');scrollTo({top:0,behavior:'smooth'});}
+function openLaunch(m){current=m;document.getElementById('lIco').innerHTML=I[m.id];document.getElementById('lTitle').textContent=m.title;document.getElementById('lDesc').textContent=m.desc;document.getElementById('scopeChk').checked=false;document.getElementById('launchBtn').disabled=true;go('launch');}
+document.getElementById('scopeChk').addEventListener('change',e=>{document.getElementById('launchBtn').disabled=!e.target.checked;});
 
-function openLaunch(m){
-  current = m;
-  document.getElementById('lIco').innerHTML = I[m.icon];
-  document.getElementById('lTitle').textContent = m.title;
-  document.getElementById('lDesc').textContent = m.desc;
-  const chk = document.getElementById('scopeChk');
-  chk.checked = false;
-  document.getElementById('launchBtn').disabled = true;
-  go('launch');
-}
-document.getElementById('scopeChk').addEventListener('change', e => {
-  document.getElementById('launchBtn').disabled = !e.target.checked;
-});
+const SPIN='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 3a9 9 0 1 0 9 9"/></svg>';
+const REPORT_MD=`# VibeSec — отчёт\n**Цель:** demo.vibesec.local\n**Подтверждённых находок:** 4 (critical: 1, high: 2, medium: 1)\n\n---\n## 1. [Critical] SQL-инъекция в параметре id\n- Severity: Critical (9.8)\n- Class: SQLi · Asset: /item?id=\n### Steps to Reproduce\n1. Отправить запрос к /item?id=\n2. Наблюдать boolean-based инъекцию\n### Proof of Concept\n\`\`\`bash\ncurl -sik 'https://demo.vibesec.local/item?id='\n\`\`\`\n### Remediation\nПараметризованные запросы / ORM.\n\n---\n## 2. [High] Reflected XSS в параметре q\n...`;
 
-// ---- Simulated run ----
 function startRun(){
-  const target = document.getElementById('target').value.trim() || 'demo.vibesec.local';
-  document.getElementById('rTitle').textContent = current.title;
-  document.getElementById('rTarget').textContent = target;
-  document.getElementById('termTitle').textContent = `vibesec@orchestrator: ~ ${current.id}`;
-  document.getElementById('doneBanner').classList.remove('show');
-  document.getElementById('stopBtn').disabled = false;
-  document.getElementById('stopBtn').textContent = '■ Остановить';
-
-  // build stage list
-  const sl = document.getElementById('stageList');
-  sl.innerHTML = '';
-  current.stages.forEach((name,i)=>{
-    const d = document.createElement('div');
-    d.className = 'stage'; d.id = 'stg'+i;
-    d.innerHTML = `<span class="sdot">${i+1}</span><span>${name}</span>`;
-    sl.appendChild(d);
-  });
-  document.getElementById('term').innerHTML = '';
-  document.getElementById('overallBar').style.width = '0%';
-  document.getElementById('pctLbl').textContent = '0%';
+  const target=document.getElementById('target').value.trim()||'demo.vibesec.local';
+  document.getElementById('rTitle').textContent=current.title;
+  document.getElementById('rTarget').textContent=target;
+  document.getElementById('termTitle').textContent=`vibesec@orchestrator: ~ ${current.id}`;
+  fcount=0; document.getElementById('fcount').textContent='0'; document.getElementById('findingList').innerHTML='';
+  document.getElementById('findings').classList.remove('show'); document.getElementById('reportCard').classList.remove('show');
+  // этапы
+  const stageNames=current.stages.map(s=>s.name).concat(current.finalize?['Валидация находок','Сборка отчёта']:[]);
+  const sl=document.getElementById('stageList'); sl.innerHTML='';
+  stageNames.forEach((n,i)=>{const d=document.createElement('div');d.className='stage';d.id='stg'+i;d.innerHTML=`<span class="sdot">${i+1}</span><span>${n}</span>`;sl.appendChild(d);});
+  document.getElementById('term').innerHTML=''; document.getElementById('obar').style.width='0%'; document.getElementById('pct').textContent='0%';
+  document.getElementById('stopBtn').disabled=false; document.getElementById('stopBtn').textContent='■ Остановить';
   go('run');
-
-  const script = buildScript(current, target);
-  playScript(script, current.stages.length);
+  play(buildScript(current,target), stageNames.length);
 }
 
-const SPIN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 3a9 9 0 1 0 9 9"/></svg>';
-
-function buildScript(m, target){
-  const lines = [];
-  const push = (cls, text, stage) => lines.push({cls, text, stage});
-  push('c-dim', `[orchestrator] сессия #${Math.floor(Math.random()*9000+1000)} · цель подтверждена · scope ✓`, -1);
-  push('c-dim', `[orchestrator] модуль: ${m.title}`, -1);
-  m.stages.forEach((st, si) => {
-    push('stage-start', st, si);
-    push('cmd', `$ vibesec run --stage ${m.id}.${si+1} --target ${target}`, si);
-    const pool = STAGE_LINES[m.id] && STAGE_LINES[m.id][si] ? STAGE_LINES[m.id][si] : GENERIC_LINES;
-    pool.forEach(l => push(l[0], l[1].replace(/{T}/g, target), si));
-    push('c-ok', `✓ этап завершён: ${st}`, si);
+function buildScript(m,target){
+  const ev=[]; let si=0;
+  ev.push({t:'log',cls:'c-dim',text:`[orchestrator] сессия · цель ${target} · scope ✓`});
+  m.stages.forEach(st=>{
+    ev.push({t:'stage',i:si});
+    ev.push({t:'log',cls:'cmd',text:`$ vibesec run --stage ${m.id} --target ${target}`});
+    st.lines.forEach(l=>ev.push({t:'log',cls:l[0],text:l[1].replace(/{T}/g,target)}));
+    st.findings.forEach(f=>ev.push({t:'finding',f:{...f,ep:f.ep.replace(/{T}/g,target)}}));
+    ev.push({t:'log',cls:'c-ok',text:`✓ ${st.name}`});
+    si++;
   });
-  push('c-ok', `✔ VibeSec: проверка завершена без ошибок`, m.stages.length-1);
-  return lines;
+  if(m.finalize){
+    ev.push({t:'stage',i:si++});
+    ev.push({t:'log',cls:'c-dim',text:'[validate] неразрушающая ре-проверка находок'});
+    ev.push({t:'validate'});
+    ev.push({t:'log',cls:'c-ok',text:'✓ подтверждено, false-positive отброшены'});
+    ev.push({t:'stage',i:si++});
+    ev.push({t:'log',cls:'c-dim',text:'[report] сборка отчёта HackerOne'});
+    ev.push({t:'report'});
+    ev.push({t:'log',cls:'c-ok',text:'✓ отчёт сохранён в reports/'});
+  }
+  ev.push({t:'log',cls:'c-ok',text:'✔ VibeSec: проверка завершена'});
+  return ev;
 }
 
-const GENERIC_LINES = [
-  ['c-dim','  инициализация инструмента...'],
-  ['c-url','  → обработка {T}'],
-  ['c-ok','  [+] 3 результата приняты'],
-  ['c-dim','  запись в хранилище сессии']
-];
-
-const STAGE_LINES = {
-  recon: [
-    [['c-dim','  subfinder · поиск поддоменов'],['c-url','  api.{T}'],['c-url','  dev.{T}'],['c-url','  staging.{T}'],['c-ok','  [+] найдено 14 поддоменов']],
-    [['c-dim','  httpx · проверка живых хостов'],['c-ok','  200  https://{T}  [nginx]'],['c-ok','  200  https://api.{T}  [cloudflare]'],['c-warn','  403  https://dev.{T}'],['c-ok','  [+] живых хостов: 9']],
-    [['c-dim','  naabu · скан портов (top-1000)'],['c-ok','  {T}:443 open'],['c-ok','  {T}:80 open'],['c-warn','  {T}:8080 open · нестандартный'],['c-ok','  [+] открытых портов: 4']],
-    [['c-dim','  снятие отпечатков технологий'],['c-url','  nginx 1.24 · React · Cloudflare'],['c-ok','  [+] стек определён']]
-  ],
-  vibe: [
-    [['c-dim','  анализ структуры AI-сгенерированного проекта'],['c-url','  обнаружен: Next.js + Supabase'],['c-ok','  [+] карта стека построена']],
-    [['c-dim','  gitleaks · поиск секретов'],['c-err','  [!] возможный API-ключ в .env.example:12'],['c-warn','  [~] hardcoded токен в config.ts:34'],['c-ok','  [+] сканирование секретов завершено']],
-    [['c-dim','  проверка небезопасных дефолтов'],['c-err','  [!] CORS: Access-Control-Allow-Origin: *'],['c-warn','  [~] отключена проверка CSRF на /api/admin'],['c-ok','  [+] паттерны проверены']],
-    [['c-dim','  аудит зависимостей'],['c-warn','  [~] 2 пакета с известными CVE'],['c-ok','  [+] 48 зависимостей проверено']]
-  ],
-  issues: [
-    [['c-dim','  подготовка списка целей'],['c-ok','  [+] 9 эндпоинтов в очереди']],
-    [['c-dim','  nuclei · запуск шаблонов'],['c-warn','  [medium] открытый редирект на /go'],['c-warn','  [low] утечка версии сервера'],['c-ok','  [+] 312 шаблонов выполнено']],
-    [['c-dim','  верификация находок'],['c-ok','  [+] 2 подтверждено, 1 ложное срабатывание отброшено']],
-    [['c-dim','  сортировка по важности (CVSS)'],['c-ok','  [+] готово: 1 medium, 1 low']]
-  ]
-};
-
-function playScript(lines, stageCount){
-  const term = document.getElementById('term');
-  let i = 0;
-  const total = lines.length;
+function play(ev,total){
+  const term=document.getElementById('term'); let i=0;
   function step(){
-    if(i >= lines.length){ finishRun(); return; }
-    const l = lines[i];
-    if(l.cls === 'stage-start'){
-      markStage(l.stage);
-    } else {
-      const span = document.createElement('span');
-      span.className = 'ln';
-      if(l.cls === 'cmd') span.innerHTML = `<span class="prompt">➜</span> <span class="c-cmd">${l.text.slice(2)}</span>`;
-      else span.innerHTML = `<span class="${l.cls}">${l.text}</span>`;
-      term.appendChild(span);
-      term.scrollTop = term.scrollHeight;
-    }
+    if(i>=ev.length){finish();return;}
+    const e=ev[i];
+    if(e.t==='stage') markStage(e.i);
+    else if(e.t==='finding') addFinding(e.f,false);
+    else if(e.t==='validate') document.querySelectorAll('.fcard').forEach(c=>c.dataset.v='1'),refreshFindings();
+    else if(e.t==='report'){document.getElementById('reportSummary').textContent='4 подтверждённых находки (critical: 1, high: 2, medium: 1)';document.getElementById('reportPreview').textContent=REPORT_MD;document.getElementById('reportCard').classList.add('show');}
+    else{const s=document.createElement('span');s.className='ln';s.innerHTML=e.cls==='cmd'?`<span class="prompt">➜</span> <span class="c-cmd">${e.text.slice(2)}</span>`:`<span class="${e.cls}">${e.text}</span>`;term.appendChild(s);term.scrollTop=term.scrollHeight;}
     i++;
-    const pct = Math.round(i/total*100);
-    document.getElementById('overallBar').style.width = pct+'%';
-    document.getElementById('pctLbl').textContent = pct+'%';
-    const delay = l.cls === 'cmd' ? 320 : (l.cls==='stage-start'? 200 : 90 + Math.random()*180);
-    timer = setTimeout(step, delay);
+    const pct=Math.round(i/ev.length*100);document.getElementById('obar').style.width=pct+'%';document.getElementById('pct').textContent=pct+'%';
+    timer=setTimeout(step, e.t==='finding'?260:e.cls==='cmd'?300:e.t==='stage'?180:90+Math.random()*160);
   }
   step();
 }
 
-function markStage(idx){
-  document.querySelectorAll('.stage').forEach((e,k)=>{
-    e.classList.remove('active');
-    if(k < idx){ e.classList.add('done'); e.querySelector('.sdot').innerHTML = '✓'; }
-  });
-  const el = document.getElementById('stg'+idx);
-  if(el){ el.classList.add('active'); el.querySelector('.sdot').innerHTML = SPIN; }
+const findings=[];
+function addFinding(f){
+  findings.push(f); fcount++; document.getElementById('fcount').textContent=fcount;
+  document.getElementById('findings').classList.add('show');
+  const el=document.createElement('div');el.className='fcard';el.style.setProperty('--sc',SEV[f.sev]);el.dataset.sev=f.sev;el.dataset.title=f.title;el.dataset.cls=f.cls;el.dataset.ep=f.ep;
+  el.innerHTML=cardHTML(f,false);
+  document.getElementById('findingList').appendChild(el);
 }
+function cardHTML(f,validated){return `<div class="ftop"><span class="fsev" style="color:${SEV[f.sev]}">${SEV_RU[f.sev]}</span><span class="fcls">${f.cls}</span><span class="fstatus ${validated?'ok':''}">${validated?'✓ подтверждено':'кандидат'}</span></div><h4>${f.title}</h4><div class="fep">${f.ep}</div>`;}
+function refreshFindings(){document.querySelectorAll('.fcard').forEach(c=>{c.innerHTML=cardHTML({sev:c.dataset.sev,cls:c.dataset.cls,title:c.dataset.title,ep:c.dataset.ep},c.dataset.v==='1');});}
 
-function finishRun(){
-  document.querySelectorAll('.stage').forEach(e=>{
-    e.classList.remove('active'); e.classList.add('done'); e.querySelector('.sdot').innerHTML = '✓';
-  });
-  document.getElementById('overallBar').style.width = '100%';
-  document.getElementById('pctLbl').textContent = '100%';
-  document.getElementById('doneBanner').classList.add('show');
-  document.getElementById('stopBtn').disabled = true;
-  document.getElementById('stopBtn').textContent = '✓ Завершено';
-}
-
-function stopRun(){
-  if(timer){ clearTimeout(timer); timer = null; }
-  const term = document.getElementById('term');
-  const span = document.createElement('span');
-  span.className = 'ln';
-  span.innerHTML = '<span class="c-err">■ процесс остановлен пользователем (SIGTERM отправлен всем дочерним процессам)</span>';
-  term.appendChild(span);
-  term.scrollTop = term.scrollHeight;
-  document.querySelectorAll('.stage.active').forEach(e=>{ e.classList.remove('active'); e.querySelector('.sdot').innerHTML='■'; });
-  document.getElementById('stopBtn').disabled = true;
-  document.getElementById('stopBtn').textContent = 'Остановлено';
-}
+function markStage(idx){document.querySelectorAll('.stage').forEach((e,k)=>{e.classList.remove('active');if(k<idx){e.classList.add('done');e.querySelector('.sdot').innerHTML='✓';}});const el=document.getElementById('stg'+idx);if(el){el.classList.add('active');el.querySelector('.sdot').innerHTML=SPIN;}}
+function finish(){document.querySelectorAll('.stage').forEach(e=>{e.classList.remove('active');e.classList.add('done');e.querySelector('.sdot').innerHTML='✓';});document.getElementById('obar').style.width='100%';document.getElementById('pct').textContent='100%';document.getElementById('stopBtn').disabled=true;document.getElementById('stopBtn').textContent='✓ Завершено';}
+function stopRun(){if(timer){clearTimeout(timer);timer=null;}const term=document.getElementById('term');const s=document.createElement('span');s.className='ln';s.innerHTML='<span class="c-err">■ процесс остановлен (SIGTERM всей process group)</span>';term.appendChild(s);term.scrollTop=term.scrollHeight;document.querySelectorAll('.stage.active').forEach(e=>{e.classList.remove('active');e.querySelector('.sdot').innerHTML='■';});document.getElementById('stopBtn').disabled=true;document.getElementById('stopBtn').textContent='Остановлено';}
 </script>

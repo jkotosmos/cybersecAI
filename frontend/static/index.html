@@ -97,6 +97,28 @@
   .banner.show{display:flex;}
   .banner.ok{background:rgba(67,192,138,.1);border:1px solid rgba(67,192,138,.3);color:var(--ok);}
   .banner.err{background:rgba(232,104,108,.1);border:1px solid rgba(232,104,108,.3);color:var(--err);}
+  .vcs{display:flex;flex-wrap:wrap;gap:6px;}
+  .vc{font-size:10.5px;letter-spacing:.03em;padding:2px 7px;border-radius:6px;background:rgba(79,143,247,.12);border:1px solid rgba(79,143,247,.25);color:#9cc0ff;font-family:ui-monospace,Menlo,Consolas,monospace;}
+  .sev{margin-left:auto;font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:2px 8px;border-radius:999px;color:var(--sc);border:1px solid color-mix(in srgb,var(--sc) 45%,transparent);background:color-mix(in srgb,var(--sc) 14%,transparent);}
+  .findings{display:flex;flex-direction:column;gap:12px;}
+  .fh{font-size:15px;font-weight:650;display:flex;align-items:center;gap:9px;}
+  .fbadge{font-size:12px;font-weight:700;background:var(--accent);color:#fff;border-radius:999px;padding:1px 9px;font-variant-numeric:tabular-nums;}
+  .flist{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;}
+  @media(max-width:720px){.flist{grid-template-columns:1fr;}}
+  .fcard{position:relative;background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:14px 16px 14px 18px;display:flex;flex-direction:column;gap:7px;overflow:hidden;}
+  .fcard::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--sc,var(--text-mut));}
+  .fcard .ftop{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .fcard .fsev{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--sc);}
+  .fcard .fcls{font-size:10.5px;font-family:ui-monospace,Menlo,Consolas,monospace;color:#9cc0ff;background:rgba(79,143,247,.12);border-radius:5px;padding:1px 6px;}
+  .fcard .fstatus{margin-left:auto;font-size:10.5px;color:var(--text-mut);}
+  .fcard .fstatus.ok{color:var(--ok);}
+  .fcard h4{margin:0;font-size:13.5px;font-weight:600;line-height:1.35;}
+  .fcard .fep{font-size:11.5px;color:var(--text-dim);font-family:ui-monospace,Menlo,Consolas,monospace;word-break:break-all;}
+  .report-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:14px;}
+  .rc-head{display:flex;align-items:center;gap:9px;font-size:15px;font-weight:650;color:var(--ok);}
+  .report-card p{margin:0;font-size:13.5px;color:var(--text-dim);}
+  .rpre{margin:0;max-height:300px;overflow:auto;background:#0a1420;border:1px solid var(--border);border-radius:10px;padding:14px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;line-height:1.55;color:var(--text-dim);white-space:pre-wrap;word-break:break-word;}
+  a.btn{text-decoration:none;display:inline-block;text-align:center;}
 </style>
 </head>
 <body>
@@ -142,6 +164,18 @@
         <div id="term"></div>
       </div>
     </div>
+
+    <div class="findings" id="findings" hidden>
+      <div class="fh">Находки <span class="fbadge" id="fcount">0</span></div>
+      <div class="flist" id="findingList"></div>
+    </div>
+
+    <div class="report-card" id="reportCard" hidden>
+      <div class="rc-head"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg> Отчёт готов — формат HackerOne</div>
+      <p id="reportSummary"></p>
+      <div class="row"><a class="btn btn-primary" id="dlMd" download>↓ Скачать .md</a><a class="btn btn-ghost" id="dlJson" download>↓ Скачать .json</a></div>
+      <pre class="rpre" id="reportPreview"></pre>
+    </div>
   </section>
 </div>
 
@@ -151,14 +185,16 @@
 const I = {
   recon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>',
   surface:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>',
-  common_issues:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.3L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.3a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>',
-  vibe_audit:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 18l6-6-6-6"/><path d="M8 6l-6 6 6 6"/><path d="M12.5 3l-1 18"/></svg>',
+  vuln_hunt:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l18-5-5 18-4-7-7-4z"/><path d="M13 13l6 6"/></svg>',
+  vibe_hunt:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 18l6-6-6-6"/><path d="M8 6l-6 6 6 6"/><path d="M12.5 3l-1 18"/></svg>',
   full:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 3v6c0 5-3.5 8-8 11-4.5-3-8-6-8-11V5z"/><path d="M9 12l2 2 4-4"/></svg>',
   report:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h5"/></svg>'
 };
+const SEV = {critical:'#e8686c',high:'#e8864f',medium:'#e0b341',low:'#4f8ff7',info:'#6f8197'};
+const SEV_RU = {critical:'Critical',high:'High',medium:'Medium',low:'Low',info:'Info'};
 const COL = {reset:'\x1b[0m',dim:'\x1b[38;5;244m',blue:'\x1b[38;5;111m',green:'\x1b[38;5;78m',yellow:'\x1b[38;5;221m',red:'\x1b[38;5;203m',cyan:'\x1b[38;5;116m'};
 
-let modules = [], current = null, ws = null, running = false;
+let modules = [], current = null, ws = null, running = false, findingEls = {};
 
 const term = new Terminal({fontSize:13,fontFamily:'ui-monospace,Menlo,Consolas,monospace',theme:{background:'#0a1420',foreground:'#e8eef6',cursor:'#4f8ff7'},convertEol:true,scrollback:4000});
 const fit = new FitAddon.FitAddon(); term.loadAddon(fit);
@@ -173,8 +209,11 @@ async function loadModules(){
     const g = document.getElementById('grid'); g.innerHTML='';
     modules.forEach(m=>{
       const b=document.createElement('button'); b.className='card'; b.onclick=()=>openLaunch(m);
+      const chips=(m.classes||[]).map(c=>`<span class="vc">${c}</span>`).join('');
+      const sev=m.sev&&m.sev!=='info'?`<span class="sev" style="--sc:${SEV[m.sev]}">${SEV_RU[m.sev]||m.sev}</span>`:'';
       b.innerHTML=`<div class="ico">${I[m.id]||I.full}</div><h3>${m.title}</h3><p>${m.desc}</p>
-        <div class="meta"><span class="pill ${m.depth==='deep'?'deep':''}">${m.depth==='deep'?'Глубокая':'Быстрая'}</span> ${m.eta}</div>`;
+        ${chips?`<div class="vcs">${chips}</div>`:''}
+        <div class="meta"><span class="pill ${m.depth==='deep'?'deep':''}">${m.depth==='deep'?'Глубокая':'Быстрая'}</span> ${m.eta} ${sev}</div>`;
       g.appendChild(b);
     });
   }catch(e){ document.getElementById('grid').innerHTML='<p style="color:var(--err)">Не удалось загрузить модули — запущен ли backend?</p>'; }
@@ -212,6 +251,8 @@ function startRun(){
   const sl=document.getElementById('stageList'); sl.innerHTML='';
   current.stages.forEach((name,i)=>{const d=document.createElement('div');d.className='stage';d.id='stg'+i;d.innerHTML=`<span class="sdot">${i+1}</span><span>${name}</span>`;sl.appendChild(d);});
   document.getElementById('obar').style.width='0%'; document.getElementById('pct').textContent='0%';
+  findingEls={}; document.getElementById('findingList').innerHTML=''; document.getElementById('fcount').textContent='0';
+  document.getElementById('findings').hidden=true; document.getElementById('reportCard').hidden=true;
   term.clear();
   document.getElementById('stopBtn').disabled=false; document.getElementById('stopBtn').textContent='■ Остановить';
   running=true;
@@ -237,6 +278,17 @@ function handle(ev){
       document.getElementById('obar').style.width=ev.value+'%';
       document.getElementById('pct').textContent=ev.value+'%';
       break;
+    case 'finding':
+      renderFinding(ev.finding);
+      break;
+    case 'report':{
+      document.getElementById('reportSummary').textContent=ev.summary;
+      document.getElementById('reportPreview').textContent=ev.preview;
+      document.getElementById('dlMd').href=`/api/report/${ev.run_id}?format=md`;
+      document.getElementById('dlJson').href=`/api/report/${ev.run_id}?format=json`;
+      document.getElementById('reportCard').hidden=false;
+      break;
+    }
     case 'done':
       document.getElementById('bOkTxt').textContent=ev.summary||'Проверка завершена.';
       document.getElementById('bOk').classList.add('show');
@@ -257,6 +309,29 @@ function handle(ev){
       break;
   }
 }
+
+function renderFinding(f){
+  if(f.status==='false_positive'){ if(findingEls[f.id]){findingEls[f.id].remove();delete findingEls[f.id];updateCount();} return; }
+  const sev=(f.severity&&f.severity.label)||'info';
+  const color=SEV[sev]||SEV['info'];
+  const validated=f.status==='validated';
+  let el=findingEls[f.id];
+  if(!el){
+    el=document.createElement('div'); el.className='fcard'; findingEls[f.id]=el;
+    document.getElementById('findingList').appendChild(el);
+    document.getElementById('findings').hidden=false;
+  }
+  el.style.setProperty('--sc',color);
+  el.innerHTML=`<div class="ftop">
+      <span class="fsev" style="color:${color}">${SEV_RU[sev]||sev}</span>
+      <span class="fcls">${f.vuln_class}</span>
+      <span class="fstatus ${validated?'ok':''}">${validated?'✓ подтверждено':'кандидат'}</span>
+    </div>
+    <h4>${f.title}</h4>
+    <div class="fep">${f.endpoint||f.target||''}</div>`;
+  updateCount();
+}
+function updateCount(){ document.getElementById('fcount').textContent=Object.keys(findingEls).length; }
 
 loadModules(); connect();
 </script>

@@ -1,10 +1,11 @@
 """Базовые структуры агента и шага.
 
-Агент — это набор шагов (этапов). Шаг описывает вызов одного инструмента:
-аргументы командной строки (с плейсхолдером ``{target}``) и демо-вывод,
-который показывается, если инструмент ещё не установлен.
+Агент — набор шагов (этапов). Шаг бывает двух видов:
+  • tool-шаг  — вызывает CLI-инструмент (argv), вывод опционально парсится в находки;
+  • action-шаг — внутренняя фаза оркестратора ('validate' | 'report' | 'collect').
 
-Новый модуль = новый агент с набором шагов. Транспорт и GUI не трогаются.
+Демо-поля (demo_lines, demo_findings) используются, когда реальный инструмент
+не установлен, чтобы каркас работал «из коробки».
 """
 from __future__ import annotations
 
@@ -13,9 +14,16 @@ from dataclasses import dataclass, field
 
 @dataclass
 class Step:
-    name: str                       # название этапа (видно в GUI)
-    argv: list[str]                 # argv[0] — инструмент; {target} заменяется на цель
+    name: str                                   # название этапа (видно в GUI)
+    argv: list[str] = field(default_factory=list)   # argv[0] — инструмент; {target} → цель
     demo_lines: list[str] = field(default_factory=list)
+    parser: str | None = None                   # имя парсера вывода → находки
+    demo_findings: list[dict] = field(default_factory=list)
+    action: str | None = None                   # 'validate' | 'report' | 'collect'
+
+    @property
+    def is_action(self) -> bool:
+        return self.action is not None
 
 
 @dataclass
