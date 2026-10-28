@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# VibeSec
+reports/
+*.log
+
+# Frontend (когда появится полноценная сборка)
+node_modules/
+dist/
+build/
+.svelte-kit/
+
+# Окружение / IDE
+.env
+.env.*
+.idea/
+.vscode/
+.DS_Store

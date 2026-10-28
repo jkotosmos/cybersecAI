@@ -1,0 +1,12 @@
+[project]
+name = "vibesec-backend"
+version = "0.1.0"
+description = "VibeSec — платформа автоматизированного этичного тестирования безопасности"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi==0.115.6",
+    "uvicorn[standard]==0.34.0",
+]
+
+[tool.uvicorn]
+app = "app.main:app"

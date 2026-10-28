@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>VibeSec</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/xterm/5.3.0/css/xterm.min.css">
+<style>
+  :root{
+    --grad-from:#0f1b2d; --grad-mid:#16222f; --grad-to:#2a333f;
+    --surface:rgba(148,176,214,.06); --surface-2:rgba(148,176,214,.09);
+    --border:rgba(159,186,221,.14); --border-hi:rgba(120,165,240,.45);
+    --accent:#4f8ff7; --accent-dim:#2f6fd6;
+    --text:#e8eef6; --text-dim:#9fb0c3; --text-mut:#6f8197;
+    --ok:#43c08a; --warn:#e0b341; --err:#e8686c;
+    --sans:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif;
+    color-scheme:dark;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{margin:0;font-family:var(--sans);color:var(--text);
+    background:radial-gradient(1100px 650px at 82% -8%,rgba(79,143,247,.16),transparent 60%),
+      linear-gradient(145deg,var(--grad-from),var(--grad-mid) 48%,var(--grad-to));
+    background-attachment:fixed;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:1120px;margin:0 auto;min-height:100%;padding:26px max(20px,env(safe-area-inset-right,0)) 48px max(20px,env(safe-area-inset-left,0));display:flex;flex-direction:column;gap:24px;}
+  header{display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+  .mark{width:40px;height:40px;border-radius:11px;background:linear-gradient(140deg,var(--accent),var(--accent-dim));display:grid;place-items:center;box-shadow:0 6px 20px rgba(47,111,214,.4);}
+  .mark svg{width:22px;height:22px;}
+  .brand{font-size:20px;font-weight:700;letter-spacing:-.02em;}
+  .brand span{color:var(--accent);}
+  .tag{font-size:12.5px;color:var(--text-dim);}
+  .spacer{flex:1;}
+  .chip{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:var(--text-dim);background:var(--surface);border:1px solid var(--border);padding:7px 12px;border-radius:999px;}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 8px var(--ok);}
+  .dot.off{background:var(--err);box-shadow:0 0 8px var(--err);}
+  .screen{display:none;flex-direction:column;gap:20px;}
+  .screen.active{display:flex;}
+  .lead h1{font-size:26px;font-weight:700;letter-spacing:-.025em;margin:0 0 6px;}
+  .lead p{margin:0;color:var(--text-dim);font-size:14.5px;max-width:62ch;}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
+  @media(max-width:860px){.grid{grid-template-columns:repeat(2,1fr);}}
+  @media(max-width:560px){.grid{grid-template-columns:1fr;}}
+  .card{text-align:left;cursor:pointer;color:inherit;font:inherit;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:12px;min-width:0;transition:transform .16s,border-color .16s,background .16s,box-shadow .16s;}
+  .card:hover{transform:translateY(-3px);border-color:var(--border-hi);background:var(--surface-2);box-shadow:0 14px 34px rgba(8,16,30,.5);}
+  .card:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+  .ico{width:42px;height:42px;border-radius:11px;display:grid;place-items:center;background:linear-gradient(140deg,rgba(79,143,247,.22),rgba(79,143,247,.06));border:1px solid var(--border);color:var(--accent);}
+  .ico svg{width:21px;height:21px;}
+  .card h3{margin:0;font-size:16px;font-weight:650;}
+  .card p{margin:0;font-size:13px;color:var(--text-dim);line-height:1.5;}
+  .card .meta{margin-top:auto;display:flex;gap:8px;align-items:center;font-size:11.5px;color:var(--text-mut);}
+  .pill{font-size:11px;padding:3px 9px;border-radius:999px;border:1px solid var(--border);color:var(--text-dim);background:rgba(0,0,0,.12);}
+  .pill.deep{color:var(--warn);border-color:rgba(224,179,65,.3);}
+  .panel{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:24px;display:flex;flex-direction:column;gap:18px;max-width:640px;}
+  .panel-head{display:flex;align-items:center;gap:14px;}
+  .panel-head .ico{width:46px;height:46px;}
+  .panel-head h2{margin:0;font-size:19px;}
+  .panel-head p{margin:2px 0 0;font-size:13px;color:var(--text-dim);}
+  label.field{display:flex;flex-direction:column;gap:7px;font-size:13px;color:var(--text-dim);}
+  input[type=text]{font:inherit;font-size:14px;color:var(--text);background:rgba(0,0,0,.22);border:1px solid var(--border);border-radius:10px;padding:12px 14px;width:100%;}
+  input[type=text]:focus{outline:none;border-color:var(--border-hi);box-shadow:0 0 0 3px rgba(79,143,247,.18);}
+  .scope{display:flex;gap:11px;align-items:flex-start;font-size:13px;color:var(--text-dim);background:rgba(224,179,65,.07);border:1px solid rgba(224,179,65,.22);border-radius:11px;padding:13px 14px;line-height:1.5;}
+  .scope input{margin-top:2px;width:16px;height:16px;accent-color:var(--accent);flex:none;}
+  .scope b{color:var(--warn);}
+  .row{display:flex;gap:11px;flex-wrap:wrap;}
+  .btn{font:inherit;font-size:14px;font-weight:600;cursor:pointer;border-radius:10px;padding:12px 20px;border:1px solid transparent;transition:filter .15s,background .15s,opacity .15s;}
+  .btn-primary{background:linear-gradient(140deg,var(--accent),var(--accent-dim));color:#fff;box-shadow:0 8px 22px rgba(47,111,214,.38);}
+  .btn-primary:hover{filter:brightness(1.08);}
+  .btn-primary:disabled{opacity:.45;cursor:not-allowed;box-shadow:none;}
+  .btn-ghost{background:var(--surface-2);color:var(--text);border-color:var(--border);}
+  .btn-danger{background:rgba(232,104,108,.16);color:var(--err);border-color:rgba(232,104,108,.4);}
+  .btn-danger:disabled{opacity:.5;cursor:not-allowed;}
+  .back{background:none;border:none;color:var(--text-dim);font:inherit;font-size:13px;cursor:pointer;width:fit-content;padding:0;}
+  .back:hover{color:var(--text);}
+  .run-top{display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+  .run-top h2{margin:0;font-size:18px;}
+  .run-top .target{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;color:var(--accent);background:rgba(79,143,247,.1);padding:4px 10px;border-radius:7px;border:1px solid var(--border);}
+  .run-layout{display:grid;grid-template-columns:280px 1fr;gap:16px;align-items:start;}
+  @media(max-width:760px){.run-layout{grid-template-columns:1fr;}}
+  .stages{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:4px;}
+  .stage{display:flex;align-items:center;gap:11px;padding:9px 8px;border-radius:9px;font-size:13.5px;color:var(--text-dim);}
+  .stage .sdot{width:20px;height:20px;border-radius:50%;flex:none;display:grid;place-items:center;border:1.5px solid var(--text-mut);font-size:11px;}
+  .stage.done{color:var(--text);}
+  .stage.done .sdot{border-color:var(--ok);background:rgba(67,192,138,.15);color:var(--ok);}
+  .stage.active{color:var(--text);background:rgba(79,143,247,.09);}
+  .stage.active .sdot{border-color:var(--accent);color:var(--accent);}
+  .overall{margin-top:10px;}
+  .overall .lbl{display:flex;justify-content:space-between;font-size:11.5px;color:var(--text-dim);margin-bottom:6px;font-variant-numeric:tabular-nums;}
+  .bar{height:8px;border-radius:999px;background:rgba(0,0,0,.3);overflow:hidden;}
+  .bar>i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--accent-dim),var(--accent));transition:width .4s;}
+  .term-wrap{border:1px solid var(--border);border-radius:14px;overflow:hidden;background:#0a1420;}
+  .term-bar{display:flex;align-items:center;gap:8px;padding:10px 14px;background:rgba(0,0,0,.3);border-bottom:1px solid var(--border);}
+  .tdot{width:11px;height:11px;border-radius:50%;}
+  .t1{background:#e8686c;}.t2{background:var(--warn);}.t3{background:var(--ok);}
+  .term-bar .tt{margin-left:8px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:var(--text-mut);}
+  #term{height:420px;padding:8px 10px;}
+  .banner{display:none;align-items:center;gap:10px;padding:12px 16px;border-radius:11px;font-size:13.5px;}
+  .banner.show{display:flex;}
+  .banner.ok{background:rgba(67,192,138,.1);border:1px solid rgba(67,192,138,.3);color:var(--ok);}
+  .banner.err{background:rgba(232,104,108,.1);border:1px solid rgba(232,104,108,.3);color:var(--err);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="mark"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 3v6c0 5-3.5 8-8 11-4.5-3-8-6-8-11V5z"/><path d="M9 12l2 2 4-4"/></svg></div>
+    <div><div class="brand">Vibe<span>Sec</span></div><div class="tag">Платформа этичного тестирования безопасности</div></div>
+    <div class="spacer"></div>
+    <div class="chip"><span class="dot off" id="connDot"></span> <span id="connTxt">подключение…</span></div>
+  </header>
+
+  <section class="screen active" id="s-home">
+    <div class="lead"><h1>Выберите тип проверки</h1><p>Нажмите карточку, подтвердите цель и scope — дальше платформа работает автономно, транслируя живой вывод инструментов.</p></div>
+    <div class="grid" id="grid"></div>
+  </section>
+
+  <section class="screen" id="s-launch">
+    <button class="back" onclick="go('home')">← Назад к модулям</button>
+    <div class="panel">
+      <div class="panel-head"><div class="ico" id="lIco"></div><div><h2 id="lTitle"></h2><p id="lDesc"></p></div></div>
+      <label class="field">Цель проверки<input type="text" id="target" placeholder="example.com · https://app.example.com · IP" value="demo.vibesec.local"></label>
+      <label class="scope"><input type="checkbox" id="scopeChk"><span>Я подтверждаю, что <b>владею этой целью или имею письменное разрешение</b> на тестирование (bug bounty scope / собственный проект).</span></label>
+      <div class="row"><button class="btn btn-primary" id="launchBtn" disabled>▶ Запустить</button><button class="btn btn-ghost" onclick="go('home')">Отмена</button></div>
+    </div>
+  </section>
+
+  <section class="screen" id="s-run">
+    <div class="run-top">
+      <button class="back" onclick="go('home')">← Модули</button>
+      <h2 id="rTitle"></h2><span class="target" id="rTarget"></span>
+      <div class="spacer"></div>
+      <button class="btn btn-danger" id="stopBtn">■ Остановить</button>
+    </div>
+    <div class="banner ok" id="bOk"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg> <span id="bOkTxt">Проверка завершена.</span></div>
+    <div class="banner err" id="bErr"><span id="bErrTxt"></span></div>
+    <div class="run-layout">
+      <div class="stages">
+        <div id="stageList"></div>
+        <div class="overall"><div class="lbl"><span>Общий прогресс</span><span id="pct">0%</span></div><div class="bar"><i id="obar"></i></div></div>
+      </div>
+      <div class="term-wrap">
+        <div class="term-bar"><span class="tdot t1"></span><span class="tdot t2"></span><span class="tdot t3"></span><span class="tt" id="termTitle">vibesec@orchestrator: ~</span></div>
+        <div id="term"></div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xterm/5.3.0/lib/xterm.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xterm-addon-fit/0.8.0/addon-fit.min.js"></script>
+<script>
+const I = {
+  recon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>',
+  surface:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>',
+  common_issues:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.3L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.3a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>',
+  vibe_audit:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 18l6-6-6-6"/><path d="M8 6l-6 6 6 6"/><path d="M12.5 3l-1 18"/></svg>',
+  full:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 3v6c0 5-3.5 8-8 11-4.5-3-8-6-8-11V5z"/><path d="M9 12l2 2 4-4"/></svg>',
+  report:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h5"/></svg>'
+};
+const COL = {reset:'\x1b[0m',dim:'\x1b[38;5;244m',blue:'\x1b[38;5;111m',green:'\x1b[38;5;78m',yellow:'\x1b[38;5;221m',red:'\x1b[38;5;203m',cyan:'\x1b[38;5;116m'};
+
+let modules = [], current = null, ws = null, running = false;
+
+const term = new Terminal({fontSize:13,fontFamily:'ui-monospace,Menlo,Consolas,monospace',theme:{background:'#0a1420',foreground:'#e8eef6',cursor:'#4f8ff7'},convertEol:true,scrollback:4000});
+const fit = new FitAddon.FitAddon(); term.loadAddon(fit);
+term.open(document.getElementById('term')); fit.fit();
+addEventListener('resize',()=>{try{fit.fit();}catch(e){}});
+
+function go(s){document.querySelectorAll('.screen').forEach(e=>e.classList.remove('active'));document.getElementById('s-'+s).classList.add('active');scrollTo({top:0,behavior:'smooth'});}
+
+async function loadModules(){
+  try{
+    modules = await (await fetch('/api/modules')).json();
+    const g = document.getElementById('grid'); g.innerHTML='';
+    modules.forEach(m=>{
+      const b=document.createElement('button'); b.className='card'; b.onclick=()=>openLaunch(m);
+      b.innerHTML=`<div class="ico">${I[m.id]||I.full}</div><h3>${m.title}</h3><p>${m.desc}</p>
+        <div class="meta"><span class="pill ${m.depth==='deep'?'deep':''}">${m.depth==='deep'?'Глубокая':'Быстрая'}</span> ${m.eta}</div>`;
+      g.appendChild(b);
+    });
+  }catch(e){ document.getElementById('grid').innerHTML='<p style="color:var(--err)">Не удалось загрузить модули — запущен ли backend?</p>'; }
+}
+
+function openLaunch(m){
+  current=m;
+  document.getElementById('lIco').innerHTML=I[m.id]||I.full;
+  document.getElementById('lTitle').textContent=m.title;
+  document.getElementById('lDesc').textContent=m.desc;
+  document.getElementById('scopeChk').checked=false;
+  document.getElementById('launchBtn').disabled=true;
+  go('launch');
+}
+document.getElementById('scopeChk').addEventListener('change',e=>{document.getElementById('launchBtn').disabled=!e.target.checked;});
+document.getElementById('launchBtn').addEventListener('click',startRun);
+document.getElementById('stopBtn').addEventListener('click',()=>{ if(ws&&running) ws.send(JSON.stringify({action:'stop'})); });
+
+function connect(){
+  const proto = location.protocol==='https:'?'wss':'ws';
+  ws = new WebSocket(`${proto}://${location.host}/ws/run`);
+  ws.onopen=()=>{document.getElementById('connDot').classList.remove('off');document.getElementById('connTxt').textContent='Движок готов · Linux';};
+  ws.onclose=()=>{document.getElementById('connDot').classList.add('off');document.getElementById('connTxt').textContent='нет связи';setTimeout(connect,2000);};
+  ws.onmessage=e=>handle(JSON.parse(e.data));
+}
+
+function startRun(){
+  if(!ws||ws.readyState!==1){alert?.(null);return;}
+  const target=document.getElementById('target').value.trim()||'demo.vibesec.local';
+  document.getElementById('rTitle').textContent=current.title;
+  document.getElementById('rTarget').textContent=target;
+  document.getElementById('termTitle').textContent=`vibesec@orchestrator: ~ ${current.id}`;
+  document.getElementById('bOk').classList.remove('show');
+  document.getElementById('bErr').classList.remove('show');
+  const sl=document.getElementById('stageList'); sl.innerHTML='';
+  current.stages.forEach((name,i)=>{const d=document.createElement('div');d.className='stage';d.id='stg'+i;d.innerHTML=`<span class="sdot">${i+1}</span><span>${name}</span>`;sl.appendChild(d);});
+  document.getElementById('obar').style.width='0%'; document.getElementById('pct').textContent='0%';
+  term.clear();
+  document.getElementById('stopBtn').disabled=false; document.getElementById('stopBtn').textContent='■ Остановить';
+  running=true;
+  go('run'); setTimeout(()=>{try{fit.fit();}catch(e){}},60);
+  ws.send(JSON.stringify({action:'start',module:current.id,target,scope_confirmed:true}));
+}
+
+function handle(ev){
+  switch(ev.type){
+    case 'log':{
+      const c = ev.stream==='system'?COL.blue : (/\[!\]|\berror\b|\bошибк/i.test(ev.line)?COL.red : /\[~\]|\bwarn|редирект|утечк/i.test(ev.line)?COL.yellow : /\[\+\]|\bok\b|200\b|завершён/i.test(ev.line)?COL.green : /https?:\/\//.test(ev.line)?COL.cyan : COL.reset);
+      const prefix = ev.stream==='system'?`${COL.blue}➜${COL.reset} `:'  ';
+      term.writeln(prefix+c+ev.line+COL.reset);
+      break;
+    }
+    case 'stage':{
+      const el=document.getElementById('stg'+ev.index); if(!el)break;
+      if(ev.state==='start'){el.classList.add('active');el.querySelector('.sdot').textContent='▸';}
+      else{el.classList.remove('active');el.classList.add('done');el.querySelector('.sdot').textContent='✓';}
+      break;
+    }
+    case 'progress':
+      document.getElementById('obar').style.width=ev.value+'%';
+      document.getElementById('pct').textContent=ev.value+'%';
+      break;
+    case 'done':
+      document.getElementById('bOkTxt').textContent=ev.summary||'Проверка завершена.';
+      document.getElementById('bOk').classList.add('show');
+      break;
+    case 'status':
+      if(ev.state==='done'||ev.state==='stopped'){
+        running=false;
+        document.getElementById('stopBtn').disabled=true;
+        document.getElementById('stopBtn').textContent=ev.state==='stopped'?'Остановлено':'✓ Завершено';
+        if(ev.state==='stopped'){document.querySelectorAll('.stage.active').forEach(e=>{e.classList.remove('active');e.querySelector('.sdot').textContent='■';});}
+      }
+      break;
+    case 'error':
+      document.getElementById('bErrTxt').textContent='Ошибка: '+ev.message;
+      document.getElementById('bErr').classList.add('show');
+      running=false;
+      document.getElementById('stopBtn').disabled=true;
+      break;
+  }
+}
+
+loadModules(); connect();
+</script>
+</body>
+</html>
