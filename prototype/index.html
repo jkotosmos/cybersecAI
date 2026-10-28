@@ -117,6 +117,9 @@
   .fcard .fstatus.ok{color:var(--ok);}
   .fcard h4{margin:0;font-size:13.5px;font-weight:600;line-height:1.35;}
   .fcard .fep{font-size:11.5px;color:var(--text-dim);font-family:var(--mono);word-break:break-all;}
+  .fshot{display:block;margin-top:4px;border-radius:8px;overflow:hidden;border:1px solid var(--border);line-height:0;}
+  .fshot img{width:100%;height:auto;display:block;transition:transform .2s;}
+  .fshot:hover img{transform:scale(1.03);}
   .report-card{display:none;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px;flex-direction:column;gap:14px;}
   .report-card.show{display:flex;}
   .rc-head{display:flex;align-items:center;gap:9px;font-size:15px;font-weight:650;color:var(--ok);}
@@ -175,7 +178,7 @@
     <div class="report-card" id="reportCard">
       <div class="rc-head"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg> Отчёт готов — формат HackerOne</div>
       <p id="reportSummary"></p>
-      <div class="row"><span class="btn btn-primary">↓ Скачать .md</span><span class="btn btn-ghost">↓ Скачать .json</span></div>
+      <div class="row"><span class="btn btn-primary">↓ PDF</span><span class="btn btn-ghost">↓ Markdown</span><span class="btn btn-ghost">↓ HTML</span><span class="btn btn-ghost">↓ JSON</span></div>
       <pre class="rpre" id="reportPreview"></pre>
     </div>
   </section>
@@ -189,6 +192,8 @@ const I={
   surface:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>',
   vuln_hunt:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l18-5-5 18-4-7-7-4z"/><path d="M13 13l6 6"/></svg>',
   vibe_hunt:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 18l6-6-6-6"/><path d="M8 6l-6 6 6 6"/><path d="M12.5 3l-1 18"/></svg>',
+  auth_hunt:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>',
+  redteam:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3v4M12 17v4M3 12h4M17 12h4"/><circle cx="12" cy="12" r="2.5"/></svg>',
   full:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 3v6c0 5-3.5 8-8 11-4.5-3-8-6-8-11V5z"/><path d="M9 12l2 2 4-4"/></svg>',
   report:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h5"/></svg>'
 };
@@ -203,6 +208,7 @@ const F_CORS={cls:'Misconfig',sev:'medium',title:'Небезопасная по�
 const F_SECRET={cls:'InfoDisclosure',sev:'critical',title:'Утёкший сервисный ключ Supabase',ep:'{T}/config.ts'};
 const F_DEBUG={cls:'Misconfig',sev:'high',title:'Открытый debug-эндпоинт',ep:'https://{T}/__debug__'};
 const F_CREDS={cls:'AuthBypass',sev:'high',title:'Дефолтные креды admin/admin',ep:'https://{T}/login'};
+const F_BAC={cls:'BAC',sev:'high',title:'Broken Access Control: чужой заказ под тест-сессией',ep:'https://{T}/api/v1/orders/8842'};
 
 const ST=(name,lines,findings)=>({name,lines:lines||[],findings:findings||[]});
 const HUNT=[
@@ -224,12 +230,19 @@ const SURF=[
   ST('Обход контента',[['c-url','  /login /admin /api/v1/users'],['c-ok','  [+] 142 URL']]),
   ST('Карта поверхности',[['c-ok','  [+] точек входа 12 · форм 7 · API 19']]),
 ];
+const AUTH=[
+  ST('Регистрация тест-профиля',[['c-dim','  сценарий: регистрация на /register'],['c-url','  → ввожу логин: vibesec_tester'],['c-dim','  → ввожу пароль: gw•••••••• (сгенерирован, скрыт)'],['c-ok','  ← 302 → /dashboard — профиль создан']]),
+  ST('Вход под тест-профилем',[['c-dim','  сценарий: вход на /login'],['c-ok','  ← 200 OK, cookie-сессия захвачена']]),
+  ST('Authenticated IDOR / BAC',[['c-dim','  запросы под тест-сессией'],['c-url','  GET /api/v1/orders/8842'],['c-err','  [!] доступ к чужому заказу без проверки владения']],[F_BAC]),
+];
 
 const MODULES=[
   {id:'recon',title:'Recon Sweep · Быстрая разведка',desc:'Поддомены, живые хосты, порты и технологии за минуты.',depth:'light',eta:'~2–4 мин',sev:'info',classes:[],stages:RECON},
   {id:'surface',title:'Attack Surface Mapping · Поверхность атаки',desc:'Обход контента, поиск параметров и скрытых путей.',depth:'light',eta:'~10–20 мин',sev:'low',classes:[],stages:[...RECON,...SURF]},
   {id:'vuln_hunt',title:'Vulnerability Hunt · Охота на уязвимости',desc:'Активный поиск XSS, SQLi, SSRF, IDOR, BAC с валидацией и отчётом.',depth:'deep',eta:'~30–60 мин',sev:'critical',classes:['IDOR','XSS','SQLi','SSRF','BAC'],stages:[...RECON,...HUNT],finalize:true},
   {id:'vibe_hunt',title:'Vibe-Code Exploit Hunt · Охота в AI-коде',desc:'Секреты, debug-эндпоинты, дефолтные креды, небезопасные дефолты AI-генераторов.',depth:'deep',eta:'~15–30 мин',sev:'high',classes:['InfoDisclosure','AuthBypass','Misconfig'],stages:EXPO,finalize:true},
+  {id:'auth_hunt',title:'Authenticated Hunt · Охота с авторизацией',desc:'Регистрация тест-профиля, вход, затем охота за IDOR и Broken Access Control под сессией.',depth:'deep',eta:'~20–40 мин',sev:'high',classes:['IDOR','BAC','AuthBypass'],stages:AUTH,finalize:true},
+  {id:'redteam',title:'Red Team Sim · Симуляция атак',desc:'Полная неразрушающая симуляция: разведка → поверхность → охота → авторизованный доступ → AI-код → отчёт.',depth:'deep',eta:'~60–120 мин',sev:'critical',classes:['IDOR','XSS','SQLi','SSRF','BAC','AuthBypass','Misconfig'],stages:[...RECON,...HUNT,...AUTH,...EXPO],finalize:true},
   {id:'full',title:'Full Kill Chain · Полный цикл',desc:'Автономно: разведка → поверхность → охота → AI-код → валидация → отчёт.',depth:'deep',eta:'~40–90 мин',sev:'critical',classes:['IDOR','XSS','SQLi','SSRF','BAC','AuthBypass'],stages:[...RECON,...HUNT,...EXPO],finalize:true},
   {id:'report',title:'Report Builder · Сборка отчёта',desc:'Собрать подтверждённые находки по цели в отчёт формата HackerOne.',depth:'light',eta:'~1–2 мин',sev:'info',classes:[],stages:[ST('Сбор находок по цели',[['c-dim','  загрузка последних результатов']]) ],finalize:true,reportOnly:true},
 ];
@@ -259,7 +272,7 @@ function startRun(){
   document.getElementById('rTitle').textContent=current.title;
   document.getElementById('rTarget').textContent=target;
   document.getElementById('termTitle').textContent=`vibesec@orchestrator: ~ ${current.id}`;
-  fcount=0; document.getElementById('fcount').textContent='0'; document.getElementById('findingList').innerHTML='';
+  fcount=0; findings.length=0; document.getElementById('fcount').textContent='0'; document.getElementById('findingList').innerHTML='';
   document.getElementById('findings').classList.remove('show'); document.getElementById('reportCard').classList.remove('show');
   // этапы
   const stageNames=current.stages.map(s=>s.name).concat(current.finalize?['Валидация находок','Сборка отчёта']:[]);
@@ -304,7 +317,11 @@ function play(ev,total){
     if(e.t==='stage') markStage(e.i);
     else if(e.t==='finding') addFinding(e.f,false);
     else if(e.t==='validate') document.querySelectorAll('.fcard').forEach(c=>c.dataset.v='1'),refreshFindings();
-    else if(e.t==='report'){document.getElementById('reportSummary').textContent='4 подтверждённых находки (critical: 1, high: 2, medium: 1)';document.getElementById('reportPreview').textContent=REPORT_MD;document.getElementById('reportCard').classList.add('show');}
+    else if(e.t==='report'){
+      const cnt={}; findings.forEach(f=>cnt[f.sev]=(cnt[f.sev]||0)+1);
+      const parts=['critical','high','medium','low'].filter(s=>cnt[s]).map(s=>`${s}: ${cnt[s]}`);
+      document.getElementById('reportSummary').textContent=`${findings.length} подтверждённых находок`+(parts.length?` (${parts.join(', ')})`:'');
+      document.getElementById('reportPreview').textContent=REPORT_MD;document.getElementById('reportCard').classList.add('show');}
     else{const s=document.createElement('span');s.className='ln';s.innerHTML=e.cls==='cmd'?`<span class="prompt">➜</span> <span class="c-cmd">${e.text.slice(2)}</span>`:`<span class="${e.cls}">${e.text}</span>`;term.appendChild(s);term.scrollTop=term.scrollHeight;}
     i++;
     const pct=Math.round(i/ev.length*100);document.getElementById('obar').style.width=pct+'%';document.getElementById('pct').textContent=pct+'%';
@@ -321,7 +338,15 @@ function addFinding(f){
   el.innerHTML=cardHTML(f,false);
   document.getElementById('findingList').appendChild(el);
 }
-function cardHTML(f,validated){return `<div class="ftop"><span class="fsev" style="color:${SEV[f.sev]}">${SEV_RU[f.sev]}</span><span class="fcls">${f.cls}</span><span class="fstatus ${validated?'ok':''}">${validated?'✓ подтверждено':'кандидат'}</span></div><h4>${f.title}</h4><div class="fep">${f.ep}</div>`;}
+function evidenceSVG(f){
+  const c=SEV[f.sev];
+  const svg=`<svg xmlns='http://www.w3.org/2000/svg' width='500' height='280' viewBox='0 0 500 280'><rect width='500' height='280' fill='#0a1420'/><rect width='500' height='44' fill='#122234'/><rect width='6' height='280' y='44' fill='${c}'/><text x='16' y='28' font-size='17' font-weight='700' fill='#e8eef6' font-family='sans-serif'>VibeSec · Evidence</text><text x='22' y='78' font-size='13' fill='#e8eef6' font-family='sans-serif'>${f.title.slice(0,46)}</text><text x='22' y='104' font-size='11' fill='#9fb0c7' font-family='monospace'>${f.ep.slice(0,52)}</text><text x='22' y='140' font-size='11' fill='#8fd0c8' font-family='monospace'>class: ${f.cls}</text><text x='22' y='160' font-size='11' fill='#8fd0c8' font-family='monospace'>severity: ${SEV_RU[f.sev]}</text><text x='22' y='258' font-size='10' fill='#6f8197' font-family='monospace'>Автоматический скриншот PoC</text></svg>`;
+  return 'data:image/svg+xml;utf8,'+encodeURIComponent(svg);
+}
+function cardHTML(f,validated){
+  const thumb=validated?`<a class="fshot" href="${evidenceSVG(f)}" target="_blank" rel="noopener"><img src="${evidenceSVG(f)}" alt="скриншот-доказательство"></a>`:'';
+  return `<div class="ftop"><span class="fsev" style="color:${SEV[f.sev]}">${SEV_RU[f.sev]}</span><span class="fcls">${f.cls}</span><span class="fstatus ${validated?'ok':''}">${validated?'✓ подтверждено':'кандидат'}</span></div><h4>${f.title}</h4><div class="fep">${f.ep}</div>${thumb}`;
+}
 function refreshFindings(){document.querySelectorAll('.fcard').forEach(c=>{c.innerHTML=cardHTML({sev:c.dataset.sev,cls:c.dataset.cls,title:c.dataset.title,ep:c.dataset.ep},c.dataset.v==='1');});}
 
 function markStage(idx){document.querySelectorAll('.stage').forEach((e,k)=>{e.classList.remove('active');if(k<idx){e.classList.add('done');e.querySelector('.sdot').innerHTML='✓';}});const el=document.getElementById('stg'+idx);if(el){el.classList.add('active');el.querySelector('.sdot').innerHTML=SPIN;}}
