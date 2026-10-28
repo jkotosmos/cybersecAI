@@ -93,6 +93,11 @@
   .t1{background:#e8686c;}.t2{background:var(--warn);}.t3{background:var(--ok);}
   .term-bar .tt{margin-left:8px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:var(--text-mut);}
   #term{height:420px;padding:8px 10px;}
+  #term.plain{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;line-height:1.6;padding:12px 14px;overflow-y:auto;white-space:pre-wrap;word-break:break-word;color:#e8eef6;}
+  #term.plain::-webkit-scrollbar{width:9px;}
+  #term.plain::-webkit-scrollbar-thumb{background:rgba(159,186,221,.2);border-radius:9px;}
+  .pln{display:block;}
+  .k-sys,.k-cmd{color:#7fb0ff;}.k-ok{color:#43c08a;}.k-warn{color:#e0b341;}.k-err{color:#e8686c;}.k-url{color:#8fd0c8;}
   .banner{display:none;align-items:center;gap:10px;padding:12px 16px;border-radius:11px;font-size:13.5px;}
   .banner.show{display:flex;}
   .banner.ok{background:rgba(67,192,138,.1);border:1px solid rgba(67,192,138,.3);color:var(--ok);}
@@ -114,6 +119,9 @@
   .fcard .fstatus.ok{color:var(--ok);}
   .fcard h4{margin:0;font-size:13.5px;font-weight:600;line-height:1.35;}
   .fcard .fep{font-size:11.5px;color:var(--text-dim);font-family:ui-monospace,Menlo,Consolas,monospace;word-break:break-all;}
+  .fshot{display:block;margin-top:4px;border-radius:8px;overflow:hidden;border:1px solid var(--border);line-height:0;}
+  .fshot img{width:100%;height:auto;display:block;transition:transform .2s;}
+  .fshot:hover img{transform:scale(1.03);}
   .report-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:14px;}
   .rc-head{display:flex;align-items:center;gap:9px;font-size:15px;font-weight:650;color:var(--ok);}
   .report-card p{margin:0;font-size:13.5px;color:var(--text-dim);}
@@ -173,7 +181,7 @@
     <div class="report-card" id="reportCard" hidden>
       <div class="rc-head"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg> Отчёт готов — формат HackerOne</div>
       <p id="reportSummary"></p>
-      <div class="row"><a class="btn btn-primary" id="dlMd" download>↓ Скачать .md</a><a class="btn btn-ghost" id="dlJson" download>↓ Скачать .json</a></div>
+      <div class="row" id="dlRow"></div>
       <pre class="rpre" id="reportPreview"></pre>
     </div>
   </section>
@@ -187,19 +195,50 @@ const I = {
   surface:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>',
   vuln_hunt:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l18-5-5 18-4-7-7-4z"/><path d="M13 13l6 6"/></svg>',
   vibe_hunt:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 18l6-6-6-6"/><path d="M8 6l-6 6 6 6"/><path d="M12.5 3l-1 18"/></svg>',
+  auth_hunt:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>',
+  redteam:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3v4M12 17v4M3 12h4M17 12h4"/><circle cx="12" cy="12" r="2.5"/></svg>',
   full:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 3v6c0 5-3.5 8-8 11-4.5-3-8-6-8-11V5z"/><path d="M9 12l2 2 4-4"/></svg>',
   report:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h5"/></svg>'
 };
 const SEV = {critical:'#e8686c',high:'#e8864f',medium:'#e0b341',low:'#4f8ff7',info:'#6f8197'};
 const SEV_RU = {critical:'Critical',high:'High',medium:'Medium',low:'Low',info:'Info'};
-const COL = {reset:'\x1b[0m',dim:'\x1b[38;5;244m',blue:'\x1b[38;5;111m',green:'\x1b[38;5;78m',yellow:'\x1b[38;5;221m',red:'\x1b[38;5;203m',cyan:'\x1b[38;5;116m'};
 
 let modules = [], current = null, ws = null, running = false, findingEls = {};
 
-const term = new Terminal({fontSize:13,fontFamily:'ui-monospace,Menlo,Consolas,monospace',theme:{background:'#0a1420',foreground:'#e8eef6',cursor:'#4f8ff7'},convertEol:true,scrollback:4000});
-const fit = new FitAddon.FitAddon(); term.loadAddon(fit);
-term.open(document.getElementById('term')); fit.fit();
-addEventListener('resize',()=>{try{fit.fit();}catch(e){}});
+// Терминал: xterm.js если загрузился с CDN, иначе устойчивый DOM-фолбэк.
+const termEl=document.getElementById('term');
+let xterm=null, fitAddon=null;
+const ANSI={sys:'\x1b[38;5;111m',ok:'\x1b[38;5;78m',warn:'\x1b[38;5;221m',err:'\x1b[38;5;203m',url:'\x1b[38;5;116m',reset:'\x1b[0m'};
+function kind(stream,line){
+  if(stream==='system')return 'sys';
+  if(/\[!\]|\berror\b|\bошибк/i.test(line))return 'err';
+  if(/\[~\]|\bwarn|редирект|утечк/i.test(line))return 'warn';
+  if(/\[\+\]|\bok\b|200\b|завершён|✓/i.test(line))return 'ok';
+  if(/https?:\/\//.test(line))return 'url';
+  return '';
+}
+(function initTerm(){
+  if(typeof Terminal!=='undefined'){
+    try{
+      xterm=new Terminal({fontSize:13,fontFamily:'ui-monospace,Menlo,Consolas,monospace',theme:{background:'#0a1420',foreground:'#e8eef6',cursor:'#4f8ff7'},convertEol:true,scrollback:4000});
+      if(typeof FitAddon!=='undefined'){fitAddon=new FitAddon.FitAddon();xterm.loadAddon(fitAddon);}
+      xterm.open(termEl); fitAddon&&fitAddon.fit();
+      addEventListener('resize',()=>{try{fitAddon&&fitAddon.fit();}catch(e){}});
+      return;
+    }catch(e){ xterm=null; }
+  }
+  termEl.classList.add('plain');
+})();
+const TERM={
+  clear(){ if(xterm)xterm.clear(); else termEl.innerHTML=''; },
+  fit(){ try{ fitAddon&&fitAddon.fit(); }catch(e){} },
+  log(stream,line){
+    const k=kind(stream,line), pre=stream==='system'?'➜ ':'  ';
+    if(xterm){ const c=ANSI[k]||ANSI.reset; xterm.writeln((stream==='system'?ANSI.sys+'➜ '+ANSI.reset:'  ')+c+line+ANSI.reset); return; }
+    const d=document.createElement('div'); d.className='pln'+(k?' k-'+k:''); d.textContent=pre+line;
+    termEl.appendChild(d); termEl.scrollTop=termEl.scrollHeight;
+  }
+};
 
 function go(s){document.querySelectorAll('.screen').forEach(e=>e.classList.remove('active'));document.getElementById('s-'+s).classList.add('active');scrollTo({top:0,behavior:'smooth'});}
 
@@ -253,21 +292,18 @@ function startRun(){
   document.getElementById('obar').style.width='0%'; document.getElementById('pct').textContent='0%';
   findingEls={}; document.getElementById('findingList').innerHTML=''; document.getElementById('fcount').textContent='0';
   document.getElementById('findings').hidden=true; document.getElementById('reportCard').hidden=true;
-  term.clear();
+  TERM.clear();
   document.getElementById('stopBtn').disabled=false; document.getElementById('stopBtn').textContent='■ Остановить';
   running=true;
-  go('run'); setTimeout(()=>{try{fit.fit();}catch(e){}},60);
+  go('run'); setTimeout(()=>TERM.fit(),60);
   ws.send(JSON.stringify({action:'start',module:current.id,target,scope_confirmed:true}));
 }
 
 function handle(ev){
   switch(ev.type){
-    case 'log':{
-      const c = ev.stream==='system'?COL.blue : (/\[!\]|\berror\b|\bошибк/i.test(ev.line)?COL.red : /\[~\]|\bwarn|редирект|утечк/i.test(ev.line)?COL.yellow : /\[\+\]|\bok\b|200\b|завершён/i.test(ev.line)?COL.green : /https?:\/\//.test(ev.line)?COL.cyan : COL.reset);
-      const prefix = ev.stream==='system'?`${COL.blue}➜${COL.reset} `:'  ';
-      term.writeln(prefix+c+ev.line+COL.reset);
+    case 'log':
+      TERM.log(ev.stream, ev.line);
       break;
-    }
     case 'stage':{
       const el=document.getElementById('stg'+ev.index); if(!el)break;
       if(ev.state==='start'){el.classList.add('active');el.querySelector('.sdot').textContent='▸';}
@@ -284,8 +320,10 @@ function handle(ev){
     case 'report':{
       document.getElementById('reportSummary').textContent=ev.summary;
       document.getElementById('reportPreview').textContent=ev.preview;
-      document.getElementById('dlMd').href=`/api/report/${ev.run_id}?format=md`;
-      document.getElementById('dlJson').href=`/api/report/${ev.run_id}?format=json`;
+      const labels={pdf:'↓ PDF',md:'↓ Markdown',html:'↓ HTML',json:'↓ JSON'};
+      const order=['pdf','md','html','json'].filter(f=>(ev.formats||['md','json']).includes(f));
+      document.getElementById('dlRow').innerHTML=order.map((f,i)=>
+        `<a class="btn ${i===0?'btn-primary':'btn-ghost'}" href="/api/report/${ev.run_id}?format=${f}" ${f==='pdf'?'download':'target="_blank" rel="noopener"'}>${labels[f]}</a>`).join('');
       document.getElementById('reportCard').hidden=false;
       break;
     }
@@ -322,13 +360,15 @@ function renderFinding(f){
     document.getElementById('findings').hidden=false;
   }
   el.style.setProperty('--sc',color);
+  const thumb=f.screenshot_url?`<a class="fshot" href="${f.screenshot_url}" target="_blank" rel="noopener"><img src="${f.screenshot_url}" alt="скриншот-доказательство" loading="lazy"></a>`:'';
   el.innerHTML=`<div class="ftop">
       <span class="fsev" style="color:${color}">${SEV_RU[sev]||sev}</span>
       <span class="fcls">${f.vuln_class}</span>
       <span class="fstatus ${validated?'ok':''}">${validated?'✓ подтверждено':'кандидат'}</span>
     </div>
     <h4>${f.title}</h4>
-    <div class="fep">${f.endpoint||f.target||''}</div>`;
+    <div class="fep">${f.endpoint||f.target||''}</div>
+    ${thumb}`;
   updateCount();
 }
 function updateCount(){ document.getElementById('fcount').textContent=Object.keys(findingEls).length; }

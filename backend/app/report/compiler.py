@@ -11,6 +11,8 @@ import time
 from pathlib import Path
 
 from app.findings.model import Finding, FindingStore
+from app.report import html as html_report
+from app.report import pdf as pdf_report
 
 _BADGE = {"critical": "🔴 Critical", "high": "🟠 High", "medium": "🟡 Medium",
           "low": "🔵 Low", "info": "⚪ Info"}
@@ -78,8 +80,20 @@ def compile_report(store: FindingStore, target: str, module_title: str) -> tuple
             "generated": time.strftime("%Y-%m-%dT%H:%M:%S"),
             "counts": counts,
             "findings": [f.to_dict() for f in findings],
+            "tasks": store.tasks,
         }, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
-    summary = f"{len(findings)} подтверждённых находок" + (f" ({', '.join(f'{k}: {v}' for k, v in counts.items())})" if counts else "")
-    return md, {"count": len(findings), "counts": counts, "summary": summary}
+
+    meta = {"target": target, "module": module_title, "count": len(findings), "counts": counts}
+    formats = ["md", "json"]
+
+    html_report.build_html(meta, findings, store.tasks, store.run_dir)
+    formats.append("html")
+
+    if pdf_report.build_pdf(meta, findings, store.tasks, store.run_dir):
+        formats.append("pdf")
+
+    summary = f"{len(findings)} подтверждённых находок" + \
+        (f" ({', '.join(f'{k}: {v}' for k, v in counts.items())})" if counts else "")
+    return md, {"count": len(findings), "counts": counts, "summary": summary, "formats": formats}

@@ -26,8 +26,21 @@ AI-генераторами кода).
 | **Attack Surface Mapping** · Поверхность атаки | Обход контента, параметры, скрытые пути | — |
 | **Vulnerability Hunt** · Охота на уязвимости | Активный поиск + валидация + отчёт | IDOR, XSS, SQLi, SSRF, BAC |
 | **Vibe-Code Exploit Hunt** · Охота в AI-коде | Секреты, debug-эндпоинты, дефолтные креды | InfoDisclosure, AuthBypass, Misconfig |
+| **Authenticated Hunt** · Охота с авторизацией | Регистрация тест-профиля, вход, охота под сессией | IDOR, BAC, AuthBypass |
+| **Red Team Sim** · Симуляция атак | Полная неразрушающая цепочка + авторизованный доступ | все |
 | **Full Kill Chain** · Полный цикл | Разведка → поверхность → охота → AI-код → валидация → отчёт | все |
 | **Report Builder** · Сборка отчёта | Подтверждённые находки → отчёт HackerOne | — |
+
+## Доказательства и отчёты
+
+- **Скриншоты-доказательства** — для каждой подтверждённой находки и шага-сценария
+  делается скриншот (реальная цель — Playwright; иначе стилизованный плейсхолдер
+  Pillow/SVG). Встраивается в HTML/PDF-отчёт и показывается в живой панели находок.
+- **Задачи-сценарии** — автономные шаги вроде «зайти и создать профиль с логином и
+  паролем» и «войти»: с живым выводом, скриншотом и приложением к отчёту. Учётные
+  данные тестовые (переданы пользователем или сгенерированы; пароль в выводе маскируется).
+- **Форматы отчёта** — Markdown, JSON, самодостаточный HTML и **PDF** (fpdf2 со
+  встроенными скриншотами; кириллица через автоопределение шрифта).
 
 ## Архитектура
 
@@ -44,9 +57,11 @@ GUI ──WS──▶ Orchestrator ──▶ фазы: Recon → Surface → Hun
 - **`core/runner.py`** — запуск инструмента, построчный стриминг, остановка; демо-режим без тулов.
 - **`core/scope.py`** / **`core/safety.py`** — барьер scope и запрет деструктива.
 - **`core/validate.py`** / **`core/poc.py`** — неразрушающее подтверждение и генерация PoC.
-- **`agents/*.py`** — агенты (recon, surface, hunt, exposure, finalize, report); агент = набор шагов.
+- **`agents/*.py`** — агенты (recon, surface, hunt, exposure, auth, finalize, report); агент = набор шагов.
 - **`parsers/*.py`** — нормализаторы вывода nuclei/dalfox/sqlmap/ffuf в структурные находки.
-- **`report/compiler.py`** — сборка отчёта HackerOne (Markdown + JSON).
+- **`flows/account.py`** — сценарии регистрации/входа (задачи human-in-the-loop).
+- **`evidence/screenshot.py`** — скриншоты-доказательства (Playwright / Pillow / SVG).
+- **`report/compiler.py`** + **`report/html.py`** + **`report/pdf.py`** — отчёт HackerOne (md/json/html/pdf).
 - **`modules/registry.py`** — связь карточек GUI с пайплайнами агентов.
 
 Если инструмент не установлен, шаг показывает демо-вывод и демо-находки — каркас
@@ -81,14 +96,19 @@ katana, gau, arjun, ffuf, nuclei, dalfox, sqlmap, gitleaks, osv-scanner.
 ## API
 
 - `GET /api/modules` — список модулей для карточек.
-- `GET /api/report/{run_id}?format=md|json` — скачать готовый отчёт.
+- `GET /api/report/{run_id}?format=md|json|html|pdf` — скачать готовый отчёт.
+- `GET /api/screenshot/{run_id}/{name}` — скриншот-доказательство (png|svg).
 - `WS /ws/run` — живой запуск.
+
+Проверка: `backend/.venv/Scripts/python backend/tests/smoke.py` (сквозной тест через
+TestClient: модули, запуск, находки, скриншоты, все форматы отчёта, scope-барьер).
 
 Протокол WebSocket:
 
 ```jsonc
 // клиент → сервер
-{"action": "start", "module": "vuln_hunt", "target": "example.com", "scope_confirmed": true}
+{"action": "start", "module": "auth_hunt", "target": "example.com", "scope_confirmed": true,
+ "credentials": {"username": "tester", "password": "..."}}   // credentials опциональны
 {"action": "stop"}
 
 // сервер → клиент (поток событий)
@@ -96,8 +116,8 @@ katana, gau, arjun, ffuf, nuclei, dalfox, sqlmap, gitleaks, osv-scanner.
 {"type": "stage",    "index": 0, "name": "...", "state": "start|done", "total": 8}
 {"type": "log",      "stage": "...", "stream": "stdout|stderr|system", "line": "..."}
 {"type": "progress", "value": 42}
-{"type": "finding",  "finding": { /* структура Finding */ }}
-{"type": "report",   "run_id": "...", "summary": "...", "formats": ["md","json"], "preview": "..."}
+{"type": "finding",  "finding": { /* Finding + screenshot_url */ }}
+{"type": "report",   "run_id": "...", "summary": "...", "formats": ["md","json","html","pdf"], "preview": "..."}
 {"type": "done",     "summary": "..."}
 {"type": "error",    "message": "..."}
 ```

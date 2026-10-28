@@ -40,6 +40,7 @@ class Finding:
     impact: str = ""
     remediation: str = ""
     evidence: list[str] = field(default_factory=list)
+    screenshot: str = ""                         # относительный путь к скриншоту-доказательству
     severity: Severity = field(default_factory=Severity)
     poc: PoC = field(default_factory=PoC)
     tool: str = ""
@@ -69,6 +70,10 @@ class FindingStore:
         self.run_dir = run_dir
         self.run_dir.mkdir(parents=True, exist_ok=True)
         self.findings: list[Finding] = []
+        self.tasks: list[dict] = []   # шаги-сценарии (регистрация/вход) с evidence
+
+    def add_task(self, name: str, screenshot: str = "", note: str = "") -> None:
+        self.tasks.append({"name": name, "screenshot": screenshot, "note": note})
 
     @property
     def run_id(self) -> str:

@@ -6,7 +6,7 @@
 """
 from __future__ import annotations
 
-from app.agents import recon, surface, hunt, exposure, finalize, report
+from app.agents import recon, surface, hunt, exposure, auth, finalize, report
 from app.agents.base import Agent
 
 MODULES: dict[str, dict] = {
@@ -35,6 +35,20 @@ MODULES: dict[str, dict] = {
         "depth": "deep", "eta": "~15–30 мин", "sev": "high",
         "classes": ["InfoDisclosure", "AuthBypass", "Misconfig"],
         "agents": [exposure.agent, finalize.agent],
+    },
+    "auth_hunt": {
+        "title": "Authenticated Hunt · Охота с авторизацией",
+        "desc": "Регистрация тест-профиля, вход, затем охота за IDOR и Broken Access Control под сессией.",
+        "depth": "deep", "eta": "~20–40 мин", "sev": "high",
+        "classes": ["IDOR", "BAC", "AuthBypass"],
+        "agents": [auth.agent, finalize.agent],
+    },
+    "redteam": {
+        "title": "Red Team Sim · Симуляция атак",
+        "desc": "Полная неразрушающая симуляция: разведка → поверхность → охота → авторизованный доступ → AI-код → отчёт.",
+        "depth": "deep", "eta": "~60–120 мин", "sev": "critical",
+        "classes": ["IDOR", "XSS", "SQLi", "SSRF", "BAC", "AuthBypass", "Misconfig"],
+        "agents": [recon.agent, surface.agent, hunt.agent, auth.agent, exposure.agent, finalize.agent],
     },
     "full": {
         "title": "Full Kill Chain · Полный цикл",

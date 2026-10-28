@@ -9,7 +9,9 @@ from __future__ import annotations
 
 import asyncio
 import re
+import secrets
 import time
+from pathlib import Path
 
 from app.agents.base import Step
 from app.config import settings
@@ -19,7 +21,9 @@ from app.core.poc import generate as generate_poc
 from app.core.runner import run_step
 from app.core.scope import Scope, ScopeError
 from app.core.validate import validate_findings
+from app.evidence import screenshot
 from app.findings.model import Finding, FindingStore
+from app.flows import account
 from app.modules import registry
 from app.parsers import PARSERS
 from app.report.compiler import compile_report
@@ -37,20 +41,31 @@ class Orchestrator:
         self.cancel = asyncio.Event()
         self._module_id = ""
         self._target = ""
+        self._creds: dict = {}
         self.store: FindingStore | None = None
 
-    def prepare(self, module_id: str, target: str, confirmed: bool) -> None:
+    def prepare(self, module_id: str, target: str, confirmed: bool,
+                credentials: dict | None = None) -> None:
         if module_id not in registry.MODULES:
             raise ScopeError(f"неизвестный модуль: {module_id}")
         self._target = self.scope.check(target, confirmed)   # may raise ScopeError
         self.scope.permit(self._target)
         self._module_id = module_id
+        # Тестовые учётные данные для сценариев: переданные пользователем или сгенерированные.
+        creds = credentials or {}
+        self._creds = {
+            "username": creds.get("username") or "vibesec_tester",
+            "password": creds.get("password") or secrets.token_urlsafe(9),
+        }
 
     def stop(self) -> None:
         self.cancel.set()
 
     async def _emit_finding(self, f: Finding) -> None:
-        await self.emit(events.finding(f.to_dict()))
+        d = f.to_dict()
+        if f.screenshot and self.store is not None:
+            d["screenshot_url"] = f"/api/screenshot/{self.store.run_id}/{Path(f.screenshot).name}"
+        await self.emit(events.finding(d))
 
     async def _handle_tool_step(self, step: Step) -> str:
         status, lines, used_demo = await run_step(step, self._target, self.emit, self.cancel)
@@ -75,8 +90,22 @@ class Orchestrator:
                                        f"[vibesec] находок на этапе: {len(new)}"))
         return status
 
+    async def _handle_task(self, step: Step) -> None:
+        """Сценарий подготовки доступа (регистрация/вход) с живым выводом и скриншотом."""
+        assert self.store is not None
+        fn = account.register if step.action == "task_register" else account.login
+        log_lines, shot = fn(self._target, self._creds, self.store.run_dir)
+        for stream, line in log_lines:
+            await self.emit(events.log(step.name, stream, line))
+        self.store.add_task(step.name, screenshot=shot,
+                            note=f"тест-профиль {self._creds['username']}")
+        await self.emit(events.log(step.name, "system", f"[vibesec] скриншот-доказательство сохранён: {shot}"))
+
     async def _handle_action_step(self, step: Step) -> str:
         assert self.store is not None
+        if step.action in ("task_register", "task_login"):
+            await self._handle_task(step)
+            return "ok"
         if step.action == "collect":
             loaded = FindingStore.load_latest_for(settings.reports_dir, self._target)
             for f in loaded:
@@ -88,17 +117,26 @@ class Orchestrator:
             confirmed, rejected = validate_findings(self.store)
             for f in self.store.validated():
                 generate_poc(f, self._target)
+                f.screenshot = screenshot.capture(
+                    name=f"finding-{f.id}", title=f.title,
+                    subtitle=f.endpoint or self._target, sev_label=f.severity.label,
+                    url=f.endpoint or f"https://{self._target}", run_dir=self.store.run_dir,
+                    lines=[f"class: {f.vuln_class}",
+                           f"severity: {f.severity.label} ({f.severity.score})",
+                           f"tool: {f.tool}"],
+                )
                 await self._emit_finding(f)
             self.store.update_all()
             await self.emit(events.log(step.name, "system",
-                                       f"[vibesec] подтверждено: {confirmed}, отброшено: {rejected}"))
+                                       f"[vibesec] подтверждено: {confirmed}, отброшено: {rejected}; "
+                                       f"скриншоты-доказательства приложены"))
         elif step.action == "report":
             title = registry.MODULES[self._module_id]["title"]
             md, summary = compile_report(self.store, self._target, title)
             await self.emit(events.report(
                 run_id=self.store.run_id,
                 summary=summary["summary"],
-                formats=["md", "json"],
+                formats=summary.get("formats", ["md", "json"]),
                 preview=md[:4000],
             ))
             await self.emit(events.log(step.name, "system",

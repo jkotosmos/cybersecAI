@@ -1,2 +1,8 @@
 fastapi==0.115.6
 uvicorn[standard]==0.34.0
+fpdf2==2.8.1
+pillow==11.0.0
+
+# Опционально — реальные скриншоты PoC и сценарии регистрации/входа.
+# Установка: pip install playwright && playwright install chromium
+# playwright==1.48.0

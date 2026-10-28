@@ -24,7 +24,9 @@ from app.core.scope import ScopeError
 from app.modules import registry
 
 _RUN_ID = re.compile(r"[A-Za-z0-9._-]+")
-_MEDIA = {"md": "text/markdown; charset=utf-8", "json": "application/json"}
+_NAME = re.compile(r"[A-Za-z0-9._-]+")
+_MEDIA = {"md": "text/markdown; charset=utf-8", "json": "application/json",
+          "html": "text/html; charset=utf-8", "pdf": "application/pdf"}
 
 app = FastAPI(title="VibeSec", version="0.1.0")
 
@@ -48,6 +50,18 @@ async def get_report(run_id: str, format: str = "md") -> FileResponse:
     if settings.reports_dir.resolve() not in path.parents or not path.exists():
         raise HTTPException(status_code=404, detail="отчёт не найден")
     return FileResponse(path, filename=f"vibesec-{run_id}.{format}", media_type=_MEDIA[format])
+
+
+@app.get("/api/screenshot/{run_id}/{name}")
+async def get_screenshot(run_id: str, name: str) -> FileResponse:
+    """Отдать скриншот-доказательство (png | svg)."""
+    if not _RUN_ID.fullmatch(run_id) or not _NAME.fullmatch(name) or not name.endswith((".png", ".svg")):
+        raise HTTPException(status_code=400, detail="некорректный запрос")
+    path = (settings.reports_dir / run_id / "screenshots" / name).resolve()
+    if settings.reports_dir.resolve() not in path.parents or not path.exists():
+        raise HTTPException(status_code=404, detail="скриншот не найден")
+    media = "image/png" if name.endswith(".png") else "image/svg+xml"
+    return FileResponse(path, media_type=media)
 
 
 @app.websocket("/ws/run")
@@ -74,6 +88,7 @@ async def ws_run(ws: WebSocket) -> None:
                         module_id=msg.get("module", ""),
                         target=msg.get("target", ""),
                         confirmed=bool(msg.get("scope_confirmed", False)),
+                        credentials=msg.get("credentials"),
                     )
                 except (ScopeError, KeyError) as exc:
                     await emit(events.error(str(exc)))
@@ -97,7 +112,7 @@ async def ws_run(ws: WebSocket) -> None:
 
 # Статический фронтенд (если собран). Регистрируется последним, чтобы не
 # перехватывать /api и /ws.
-@app.get("/")
+@app.get("/", response_model=None)
 async def index() -> FileResponse | JSONResponse:
     idx = settings.frontend_dir / "index.html"
     if idx.exists():
