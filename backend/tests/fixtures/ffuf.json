@@ -1,0 +1,5 @@
+{"commandline":"ffuf -u https://demo.example.com/FUZZ -w common.txt -of json -o -","time":"2026-10-29T10:00:00Z","results":[
+  {"input":{"FUZZ":"admin"},"position":1,"status":200,"length":4211,"words":320,"lines":90,"content-type":"text/html","redirectlocation":"","url":"https://demo.example.com/admin","host":"demo.example.com"},
+  {"input":{"FUZZ":".git/config"},"position":2,"status":200,"length":182,"words":20,"lines":8,"content-type":"text/plain","redirectlocation":"","url":"https://demo.example.com/.git/config","host":"demo.example.com"},
+  {"input":{"FUZZ":"about"},"position":3,"status":200,"length":900,"words":120,"lines":40,"content-type":"text/html","redirectlocation":"","url":"https://demo.example.com/about","host":"demo.example.com"}
+],"config":{}}
